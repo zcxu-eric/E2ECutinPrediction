@@ -3,12 +3,14 @@ import torch
 from torchvision import transforms as tf
 from statistics import mean
 import os
+import glob
+import re
 
 from .. import data as vn_data
 from .. import models
 from . import engine
 from utils.test import voc_wrapper
-
+from utils.test.datasets import voc_eval
 __all__ = ['VOCTest']
 
 class CustomDataset(vn_data.BramboxDataset):
@@ -95,5 +97,21 @@ def VOCTest(hyper_params):
     netw, neth = network_size
     reorg_dets = voc_wrapper.reorgDetection(det, netw, neth) #, prefix)
     voc_wrapper.genResults(reorg_dets, results, nms_thresh)
+    ################################
+    #calculate mAP  2020.5.9  xzc  #
+    ################################
+    detfiles = glob.glob('results/*.txt')
+    sum_ap = 0
+    for one_det in detfiles:
+        classname = re.match(r'results/(.*?)_det_test_(.*?).txt', one_det).group(2)
+        _,_, ap = voc_eval.voc_eval(detpath = one_det,
+                                 annopath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/Annotations/{}.xml',
+                                 imagesetfile='/media/eric/Daten/KITTI/VOCdevkit/VOC2012/ImageSets/Main/test.txt',
+                                 classname = classname,
+                                 cachedir = '/media/eric/Daten/KITTI/VOCdevkit/')
+        sum_ap += ap
+    mAP = sum_ap/len(detfiles)
+    print('mAP:',mAP)
+
 
 
