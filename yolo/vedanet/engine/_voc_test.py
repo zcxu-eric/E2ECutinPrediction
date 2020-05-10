@@ -97,9 +97,9 @@ def VOCTest(hyper_params):
     netw, neth = network_size
     reorg_dets = voc_wrapper.reorgDetection(det, netw, neth) #, prefix)
     voc_wrapper.genResults(reorg_dets, results, nms_thresh)
-    ################################
-    #calculate mAP  2020.5.9  xzc  #
-    ################################
+    ###################################
+    #calculate mAP  2020.5.9  by xzc  #
+    ###################################
     detfiles = glob.glob('results/*.txt')
     sum_ap = 0
     for one_det in detfiles:

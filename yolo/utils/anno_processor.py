@@ -12,7 +12,7 @@ name_list = ["bus","truck","person","tv"]
 cutin_list = ["cutin"]
 #name_list = ["car","Van","person","Truck","Cyclist"]
 labels = []
-filepath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/Annotations'
+filepath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/Annotations/10'
 #filepath = './'
 
 def xml_files(dir_path):
@@ -46,14 +46,20 @@ def xml_projector(xml_path):
     Tree = ET.parse(xml_path)
     base, fname = os.path.split(xml_path)
     root = Tree.getroot()
-    ob = root.findall('object')
+    ob = root.findall('filename')
     for _ob in ob:
+        _ob.text = fname[:-4]+'.jpg'
+    ob = root.findall('folder')
+    for _ob in ob:
+        if _ob.text == "VOC2012":
+            _ob.text = "10"
+        '''
         #if _ob.text == str(one[1]):
         name = _ob.find('name').text
         
         if name in name_list:
             _ob.find('name').text = "car"
-
+        
         if name not in cutin_list and _ob.find('cutin') == None:
             cutin = SubElement(_ob,"cutin")
             cutin.text = "0"
@@ -61,6 +67,7 @@ def xml_projector(xml_path):
             _ob.find('name').text = "car"
             cutin = SubElement(_ob,"cutin")
             cutin.text = "1"
+        '''
     prettyXml(root, '\t', '\n')
     Tree.write(os.path.join(filepath,fname))
     
@@ -74,7 +81,7 @@ if __name__ == '__main__':
     #xmls = xml_files('./')
     #xml_projector(xmls[0])
 
-    pool = Pool(2)
+    pool = Pool(4)
     xmls = xml_files(filepath)
     pool.map(xml_projector,xmls)
     pool.close()

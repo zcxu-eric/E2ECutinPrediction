@@ -34,8 +34,8 @@ def identify(xml_file):
     root = ET.parse(xml_file).getroot()
     folder = root.find('folder').text
     filename = root.find('filename').text 
-    return f'{root_dir}/{folder}/JPEGImages/{filename}'
-
+    path = f'{root_dir}/VOC2012/JPEGImages/{folder}/{filename}'
+    return path
 
 if __name__ == '__main__':
     print('Getting training annotation filenames')
