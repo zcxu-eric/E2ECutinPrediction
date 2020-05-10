@@ -3,7 +3,7 @@ output_version: "baseline"
 backup_name: "weights"
 log_name: "logs"
 
-labels: ["car","truck"]
+labels: ["car","truck","person","bus"]
 
 data_root_dir: "/media/eric/Daten/KITTI/VOCdevkit/onedet_cache"
 

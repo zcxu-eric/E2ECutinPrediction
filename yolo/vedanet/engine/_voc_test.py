@@ -39,6 +39,7 @@ class CustomDataset(vn_data.BramboxDataset):
 
 
 def VOCTest(hyper_params):
+
     log.debug('Creating network')
 
     model_name = hyper_params.model_name
@@ -97,19 +98,23 @@ def VOCTest(hyper_params):
     netw, neth = network_size
     reorg_dets = voc_wrapper.reorgDetection(det, netw, neth) #, prefix)
     voc_wrapper.genResults(reorg_dets, results, nms_thresh)
+
     ###################################
     #calculate mAP  2020.5.9  by xzc  #
     ###################################
+    data_root_dir,_ = os.path.split(hyper_params.data_root)
     detfiles = glob.glob('results/*.txt')
     sum_ap = 0
     for one_det in detfiles:
         classname = re.match(r'results/(.*?)_det_test_(.*?).txt', one_det).group(2)
+
         _,_, ap = voc_eval.voc_eval(detpath = one_det,
-                                 annopath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/Annotations/{}.xml',
-                                 imagesetfile='/media/eric/Daten/KITTI/VOCdevkit/VOC2012/ImageSets/Main/test.txt',
+                                 annopath = data_root_dir + '/VOC2012/Annotations/{}.xml',
+                                 imagesetfile= data_root_dir + '/VOC2012/ImageSets/Main/test.txt',
                                  classname = classname,
-                                 cachedir = '/media/eric/Daten/KITTI/VOCdevkit/')
+                                 cachedir = data_root_dir)
         sum_ap += ap
+
     mAP = sum_ap/len(detfiles)
     print('mAP:',mAP)
 

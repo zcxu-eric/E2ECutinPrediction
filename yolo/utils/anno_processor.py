@@ -12,7 +12,7 @@ name_list = ["bus","truck","person","tv"]
 cutin_list = ["cutin"]
 #name_list = ["car","Van","person","Truck","Cyclist"]
 labels = []
-filepath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/Annotations/10'
+filepath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/Annotations/'
 #filepath = './'
 
 def xml_files(dir_path):
@@ -45,15 +45,22 @@ def xml_projector(xml_path):
     start = time.time()
     Tree = ET.parse(xml_path)
     base, fname = os.path.split(xml_path)
+    base, folder = os.path.split(base)
     root = Tree.getroot()
-    ob = root.findall('filename')
+    ob = root.findall('object')
     for _ob in ob:
-        _ob.text = fname[:-4]+'.jpg'
+        if _ob.find('name').text == 'boat':
+            print('boat')
+        #if _ob.text == 'VOC2012':
+        #    _ob.text = folder
+        #_ob.text = fname[:-4]+'.jpg'
+    '''
     ob = root.findall('folder')
     for _ob in ob:
         if _ob.text == "VOC2012":
             _ob.text = "10"
-        '''
+    '''
+    '''
         #if _ob.text == str(one[1]):
         name = _ob.find('name').text
         
@@ -67,12 +74,12 @@ def xml_projector(xml_path):
             _ob.find('name').text = "car"
             cutin = SubElement(_ob,"cutin")
             cutin.text = "1"
-        '''
+    '''
     prettyXml(root, '\t', '\n')
-    Tree.write(os.path.join(filepath,fname))
+    Tree.write(xml_path)
     
     end = time.time()
-    print('\rProcessing '+fname+' time consuming: %s s'%str(end-start), end= " ")
+    print('\rProcessing '+folder + '/' + fname+' time consuming: %s s'%str(end-start), end= " ")
        
             
         
@@ -80,9 +87,9 @@ def xml_projector(xml_path):
 if __name__ == '__main__':
     #xmls = xml_files('./')
     #xml_projector(xmls[0])
-
-    pool = Pool(4)
-    xmls = xml_files(filepath)
-    pool.map(xml_projector,xmls)
-    pool.close()
-    pool.join()
+    for i in range(1,11):
+        xmls = xml_files(filepath+str(i))
+        pool = Pool(4)
+        pool.map(xml_projector,xmls)
+        pool.close()
+        pool.join()
