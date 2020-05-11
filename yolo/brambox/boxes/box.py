@@ -26,6 +26,7 @@ class Box:
         self.y_top_left = 0.0   # y pixel coordinate top left of the box
         self.width = 0.0        # width of the box in pixels
         self.height = 0.0       # height of the box in pixels
+        self.cutin = 0.0
 
     @classmethod
     def create(cls, obj=None):
@@ -48,6 +49,7 @@ class Box:
             instance.y_top_left = obj.y_top_left
             instance.width = obj.width
             instance.height = obj.height
+            instance.cutin = obj.cutin
         else:
             raise TypeError(f'Object is not of type Box or not a string [obj.__class__.__name__]')
 

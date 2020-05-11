@@ -49,23 +49,26 @@ def xml_projector(xml_path):
     root = Tree.getroot()
     ob = root.findall('object')
     for _ob in ob:
-        if _ob.find('name').text == 'boat':
-            print('boat')
+        '''
+        box = _ob.find('bndbox')
+        if box.find('xmin').text == '493'and box.find('ymin').text== '410':
+            print(xml_path)
+        '''
         #if _ob.text == 'VOC2012':
         #    _ob.text = folder
         #_ob.text = fname[:-4]+'.jpg'
-    '''
-    ob = root.findall('folder')
-    for _ob in ob:
-        if _ob.text == "VOC2012":
-            _ob.text = "10"
-    '''
-    '''
+        '''
+        ob = root.findall('folder')
+        for _ob in ob:
+            if _ob.text == "VOC2012":
+                _ob.text = "10"
+        '''
+
         #if _ob.text == str(one[1]):
         name = _ob.find('name').text
         
-        if name in name_list:
-            _ob.find('name').text = "car"
+        #if name in name_list:
+        #    _ob.find('name').text = "car"
         
         if name not in cutin_list and _ob.find('cutin') == None:
             cutin = SubElement(_ob,"cutin")
@@ -74,7 +77,7 @@ def xml_projector(xml_path):
             _ob.find('name').text = "car"
             cutin = SubElement(_ob,"cutin")
             cutin.text = "1"
-    '''
+
     prettyXml(root, '\t', '\n')
     Tree.write(xml_path)
     

@@ -41,6 +41,7 @@ class Annotation(b.Box):
         self.ignore = False             # if true, this bounding box will not be considered in statistics processing
         self.occluded_fraction = 0.0   # value between 0 and 1 that indicates how much an object is occluded
         self.truncated_fraction = 0.0   # value between 0 and 1 that indicates how much an object is truncated
+        self.cutin_fraction = 0.0       # value between 0 and 1 that indicates probability of a cutting in object
 
         # variables below are only valid if the 'occluded' property is True (occluded_fraction > 0) and
         # represent a bounding box that indicates the visible area inside the normal bounding box
@@ -126,7 +127,7 @@ class Annotation(b.Box):
         """ Pretty print """
         string = 'Annotation {'
         string += f'\'{self.class_label}\' {self.object_id}, '
-        string += f'[{int(self.x_top_left)}, {int(self.y_top_left)}, {int(self.width)}, {int(self.height)}]'
+        string += f'[{int(self.x_top_left)}, {int(self.y_top_left)}, {int(self.width)}, {int(self.height)}], '
         if self.difficult:
             string += ', difficult'
         if self.lost:
@@ -140,6 +141,7 @@ class Annotation(b.Box):
                 string += f', occluded [{int(self.visible_x_top_left)}, {int(self.visible_y_top_left)}, {int(self.visible_width)}, {int(self.visible_height)}]'
             else:
                 string += f', occluded {self.occluded_fraction*100}%'
+        string += f'{self.cutin}'
         return string + '}'
 
 

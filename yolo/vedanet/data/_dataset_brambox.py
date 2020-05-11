@@ -8,6 +8,7 @@ import copy
 import logging as log
 from PIL import Image
 import random
+import torchvision.transforms.functional as F
 
 import brambox.boxes as bbb
 from ._dataloading import Dataset
@@ -53,7 +54,7 @@ class BramboxDataset(Dataset):
                         raise ValueError(f'{a.class_label} is not found in the class_label_map') from err
                 else:
                     a.class_id = 0
-
+        print(f'Dataset loaded: {len(self.keys)} images')
         log.info(f'Dataset loaded: {len(self.keys)} images')
 
     def __len__(self):
@@ -73,14 +74,27 @@ class BramboxDataset(Dataset):
             raise IndexError(f'list index out of range [{index}/{len(self)-1}]')
 
         # Load
-        img = Image.open(self.id(self.keys[index]))
+        imgcur = Image.open(self.id(self.keys[index]))
+        base, filename = os.path.split((self.keys[index]))
+        try:
+            prename = self.id(os.path.join(base,str(int(filename[:-4])-1).zfill(4)+'.jpg'))
+            imgpre = Image.open(prename)
+        except:
+            imgpre = Image.open(self.id(self.keys[index]))
+
         anno = copy.deepcopy(self.annos[self.keys[index]])
         random.shuffle(anno)
 
         # Transform
         if self.img_tf is not None:
-            img = self.img_tf(img)
+            a = isinstance([imgcur,imgpre], list)
+            [imgcur,imgpre] = self.img_tf([imgcur,imgpre])
+            imgcur = F.to_tensor(imgcur)
+            imgpre = F.to_tensor(imgpre)
+            #imgcur.show()
+            #imgpre.show()
         if self.anno_tf is not None:
+            bb = len(anno)
             anno = self.anno_tf(anno)
 
-        return img, anno
+        return [imgcur,imgpre], anno

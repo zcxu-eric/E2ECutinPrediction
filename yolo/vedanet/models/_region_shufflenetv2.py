@@ -11,7 +11,7 @@ __all__ = ['RegionShufflenetv2']
 
 
 class RegionShufflenetv2(YoloABC):
-    def __init__(self, num_classes=20, weights_file=None, input_channels=3,
+    def __init__(self, num_classes=4, weights_file=None, input_channels=3,
                  anchors = [(42.31,55.41), (102.17,128.30), (161.79,259.17), (303.08,154.90), (359.56,320.23)],
                  anchors_mask=[(0,1,2,3,4)], train_flag=1, clear=False, test_args=None):
         """ Network initialisation """

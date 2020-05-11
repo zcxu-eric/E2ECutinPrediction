@@ -24,7 +24,8 @@ class VOCDataset(data.BramboxDataset):
         hsv = data.transform.HSVShift(hue, sat, val)
         it  = tf.ToTensor()
 
-        img_tf = data.transform.Compose([rc, rf, hsv, it])
+        #img_tf = data.transform.Compose([rc, rf, hsv, it])
+        img_tf = data.transform.Compose([rc, rf, hsv])
         anno_tf = data.transform.Compose([rc, rf])
 
         def identify(img_id):

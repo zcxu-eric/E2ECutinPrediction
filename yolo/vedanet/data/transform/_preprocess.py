@@ -268,6 +268,8 @@ class RandomCropLetterbox(BaseMultiTransform):
     def __call__(self, data):
         if data is None:
             return None
+        elif isinstance(data,list) and len(data) == 2 and isinstance(data[0], Image.Image):
+            return self._tf_list(data)
         elif isinstance(data, collections.Sequence):
             return self._tf_anno(data)
         elif isinstance(data, Image.Image):
@@ -276,12 +278,12 @@ class RandomCropLetterbox(BaseMultiTransform):
             log.error(f'RandomCrop only works with <brambox annotation lists>, <PIL images> or <OpenCV images> [{type(data)}]')
             return data
 
-    def _tf_pil(self, img):
+    def _tf_list(self, img):
         """ Take random crop from image """
         self.output_w, self.output_h = self.dataset.input_dim
         #print('output shape: %d, %d' % (self.output_w, self.output_h))
-        orig_w, orig_h = img.size
-        img_np = np.array(img)
+        orig_w, orig_h = img[0].size
+        img_np = np.array(img[0])
         channels = img_np.shape[2] if len(img_np.shape) > 2 else 1
         dw = int(self.jitter * orig_w)
         dh = int(self.jitter * orig_h)
@@ -313,9 +315,54 @@ class RandomCropLetterbox(BaseMultiTransform):
         orig_ymin = int(nymin * sy)
         orig_xmax = int(nxmax * sx)
         orig_ymax = int(nymax * sy)
+        orig_crop = [one.crop((orig_xmin, orig_ymin, orig_xmax, orig_ymax)) for one in img]
+        orig_crop_resize = [one.resize((nxmax - nxmin, nymax - nymin)) for one in orig_crop]
+        output_img = [Image.new(one.mode, (self.output_w, self.output_h), color=(self.fill_color,)*channels) for one in img]
+        output_img[0].paste(orig_crop_resize[0], (0, 0))
+        output_img[1].paste(orig_crop_resize[1], (0, 0))
+        self.crop_info = [sx, sy, nxmin, nymin, nxmax, nymax]
+        return output_img
+
+    def _tf_pil(self, img):
+        """ Take random crop from image """
+        self.output_w, self.output_h = self.dataset.input_dim
+        # print('output shape: %d, %d' % (self.output_w, self.output_h))
+        orig_w, orig_h = img.size
+        img_np = np.array(img)
+        channels = img_np.shape[2] if len(img_np.shape) > 2 else 1
+        dw = int(self.jitter * orig_w)
+        dh = int(self.jitter * orig_h)
+        new_ar = float(orig_w + random.randint(-dw, dw)) / (orig_h + random.randint(-dh, dh))
+        scale = random.random() * (2 - 0.25) + 0.25
+        if new_ar < 1:
+            nh = int(scale * orig_h)
+            nw = int(nh * new_ar)
+        else:
+            nw = int(scale * orig_w)
+            nh = int(nw / new_ar)
+
+        if self.output_w > nw:
+            dx = random.randint(0, self.output_w - nw)
+        else:
+            dx = random.randint(self.output_w - nw, 0)
+
+        if self.output_h > nh:
+            dy = random.randint(0, self.output_h - nh)
+        else:
+            dy = random.randint(self.output_h - nh, 0)
+
+        nxmin = max(0, -dx)
+        nymin = max(0, -dy)
+        nxmax = min(nw, -dx + self.output_w - 1)
+        nymax = min(nh, -dy + self.output_h - 1)
+        sx, sy = float(orig_w) / nw, float(orig_h) / nh
+        orig_xmin = int(nxmin * sx)
+        orig_ymin = int(nymin * sy)
+        orig_xmax = int(nxmax * sx)
+        orig_ymax = int(nymax * sy)
         orig_crop = img.crop((orig_xmin, orig_ymin, orig_xmax, orig_ymax))
         orig_crop_resize = orig_crop.resize((nxmax - nxmin, nymax - nymin))
-        output_img = Image.new(img.mode, (self.output_w, self.output_h), color=(self.fill_color,)*channels)
+        output_img = Image.new(img.mode, (self.output_w, self.output_h), color=(self.fill_color,) * channels)
         output_img.paste(orig_crop_resize, (0, 0))
         self.crop_info = [sx, sy, nxmin, nymin, nxmax, nymax]
         return output_img
@@ -361,6 +408,8 @@ class RandomFlip(BaseMultiTransform):
     def __call__(self, data):
         if data is None:
             return None
+        elif isinstance(data,list) and len(data) == 2 and isinstance(data[0], Image.Image):
+            return self._tf_list(data)
         elif isinstance(data, collections.Sequence):
             return [self._tf_anno(anno) for anno in data]
         elif isinstance(data, Image.Image):
@@ -370,6 +419,14 @@ class RandomFlip(BaseMultiTransform):
         else:
             log.error(f'RandomFlip only works with <brambox annotation lists>, <PIL images> or <OpenCV images> [{type(data)}]')
             return data
+
+    def _tf_list(self, img):
+        """ Randomly flip image """
+        self._get_flip()
+        self.im_w = img[0].size[0]
+        if self.flip:
+            img = [one.transpose(Image.FLIP_LEFT_RIGHT) for one in img]
+        return img
 
     def _tf_pil(self, img):
         """ Randomly flip image """
@@ -430,9 +487,33 @@ class HSVShift(BaseTransform):
             return cls._tf_pil(data, dh, ds, dv)
         elif isinstance(data, np.ndarray):
             return cls._tf_cv(data, dh, ds, dv)
+        elif isinstance(data,list):
+            return cls._tf_list(data, dh, ds, dv)
         else:
             log.error(f'HSVShift only works with <PIL images> or <OpenCV images> [{type(data)}]')
             return data
+
+    @staticmethod
+    def _tf_list(img, dh, ds, dv):
+        """ Random hsv shift """
+        img = [one.convert('HSV') for one in img]
+
+        def change_hue(x):
+            x += int(dh * 255)
+            if x > 255:
+                x -= 255
+            elif x < 0:
+                x += 0
+            return x
+        for i in range(len(img)):
+            channels = list(img[i].split())
+            channels[0] = channels[0].point(change_hue)
+            channels[1] = channels[1].point(lambda i: min(255, max(0, int(i*ds))))
+            channels[2] = channels[2].point(lambda i: min(255, max(0, int(i*dv))))
+
+            img[i] = Image.merge(img[i].mode, tuple(channels))
+            img[i] = img[i].convert('RGB')
+        return img
 
     @staticmethod
     def _tf_pil(img, dh, ds, dv):
@@ -449,8 +530,8 @@ class HSVShift(BaseTransform):
             return x
 
         channels[0] = channels[0].point(change_hue)
-        channels[1] = channels[1].point(lambda i: min(255, max(0, int(i*ds))))
-        channels[2] = channels[2].point(lambda i: min(255, max(0, int(i*dv))))
+        channels[1] = channels[1].point(lambda i: min(255, max(0, int(i * ds))))
+        channels[2] = channels[2].point(lambda i: min(255, max(0, int(i * dv))))
 
         img = Image.merge(img.mode, tuple(channels))
         img = img.convert('RGB')

@@ -29,6 +29,7 @@ class PascalVocAnnotation(Annotation):
         string += f'\t\t<xmax>{self.x_top_left + self.width - 1}</xmax>\n'
         string += f'\t\t<ymax>{self.y_top_left + self.height - 1}</ymax>\n'
         string += '\t</bndbox>\n'
+        string += f'\t<cutin>{int(self.cutin)}</cutin>\n'
         string += '</object>\n'
 
         return string
@@ -44,7 +45,10 @@ class PascalVocAnnotation(Annotation):
         self.y_top_left = float(box.find('ymin').text)
         self.width = float(int(box.find('xmax').text) - self.x_top_left + 1)
         self.height = float(int(box.find('ymax').text) - self.y_top_left + 1)
-
+        try:
+            self.cutin = float(xml_obj.find('cutin').text)
+        except:
+            raise ValueError
         self.object_id = 0
         self.lost = None
 

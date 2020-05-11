@@ -20,7 +20,7 @@ warnings.filterwarnings('ignore')
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='OneDet: an one stage framework based on PyTorch')
+    parser = argparse.ArgumentParser(description='Cutin Prediction Network: an multi stage framework based on PyTorch')
     parser.add_argument('model_name', help='model name', default=None)
     args = parser.parse_args()
 

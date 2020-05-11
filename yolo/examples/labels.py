@@ -59,7 +59,6 @@ if __name__ == '__main__':
     print('Generating training annotation file')
     bbb.generate('anno_pickle', train_annos, f'{ROOT}/onedet_cache/train.pkl')
 
-    print()
 
     print('Getting testing annotation filenames')
     test = []
