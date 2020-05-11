@@ -1,4 +1,5 @@
 import pickle
+import os
 import numpy as np
 from PIL import Image
 from .fast_rcnn.nms_wrapper import nms, soft_nms
@@ -28,7 +29,9 @@ def reorgDetection(dets, netw, neth): #, prefix):
         #img_fp = '%s/%s.jpg' % (prefix, k)
         img_fp = k #'%s/%s.jpg' % (prefix, k)
         #name = k.split('/')[-1]
-        name = k.split('/')[-1][:-4]
+        base, file = os.path.split(k)
+        base, folder = os.path.split(base)
+        name = os.path.join(folder, file[:-4])
 
         with Image.open(img_fp) as fd:
             orig_width, orig_height = fd.size

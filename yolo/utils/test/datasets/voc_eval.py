@@ -3,10 +3,10 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Bharath Hariharan
 # --------------------------------------------------------
-
+from __future__ import print_function
 import xml.etree.ElementTree as ET
 import os
-import cPickle
+from six.moves import cPickle
 import numpy as np
 
 def parse_rec(filename):
@@ -108,15 +108,14 @@ def voc_eval(detpath,
         for i, imagename in enumerate(imagenames):
             recs[imagename] = parse_rec(annopath.format(imagename))
             if i % 100 == 0:
-                print 'Reading annotation for {:d}/{:d}'.format(
-                    i + 1, len(imagenames))
+                print ('Reading annotation for {:d}/{:d}'.format(i + 1, len(imagenames)))
         # save
-        print 'Saving cached annotations to {:s}'.format(cachefile)
-        with open(cachefile, 'w') as f:
+        print ('Saving cached annotations to {:s}'.format(cachefile))
+        with open(cachefile, 'wb') as f:
             cPickle.dump(recs, f)
     else:
         # load
-        with open(cachefile, 'r') as f:
+        with open(cachefile, 'rb') as f:
             recs = cPickle.load(f)
 
     # extract gt objects for this class
@@ -133,7 +132,8 @@ def voc_eval(detpath,
                                  'det': det}
 
     # read dets
-    detfile = detpath.format(classname)
+    #detfile = detpath.format(classname)
+    detfile = detpath
     with open(detfile, 'r') as f:
         lines = f.readlines()
 

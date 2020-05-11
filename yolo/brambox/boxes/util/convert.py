@@ -104,7 +104,7 @@ def parse(fmt, box_file, identify=None, offset=0, stride=1, **kwargs):
         data = {}
         for box_file in box_files:
             img_id = identify(box_file)
-            img_id = "/media/eric/Daten/KITTI/VOCdevkit/VOC2012/JPEGImages/"+img_id[-8:] #added 20 April
+            #img_id = "/media/eric/Daten/KITTI/VOCdevkit/VOC2012/JPEGImages/"+img_id[-8:] #added 20 April for test
             if img_id in data:
                 raise ValueError(f'Multiple bounding box files with the same name were found ({img_id})')
 
