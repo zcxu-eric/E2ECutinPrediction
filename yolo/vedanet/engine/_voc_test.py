@@ -116,7 +116,9 @@ def VOCTest(hyper_params):
         sum_ap += ap
 
     mAP = sum_ap/len(detfiles)
-    print('mAP:',mAP)
+    cmd = 'cp '+ hyper_params.weights + ' ' + 'weights/' + 'regionshufflenetv2_%f.pth'%mAP
+    os.system(cmd)
+    print('mAP:',mAP,'model saved.')
 
 
 
