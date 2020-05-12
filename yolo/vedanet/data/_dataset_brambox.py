@@ -96,5 +96,6 @@ class BramboxDataset(Dataset):
         if self.anno_tf is not None:
             bb = len(anno)
             anno = self.anno_tf(anno)
+            pass
 
-        return [imgcur,imgpre], anno
+        return imgcur, imgpre, anno

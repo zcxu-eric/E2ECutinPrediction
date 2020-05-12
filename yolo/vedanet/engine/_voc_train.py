@@ -3,7 +3,8 @@ import torch
 from torchvision import transforms as tf
 from statistics import mean
 import os
-
+import numpy as np
+from PIL import Image
 from .. import data
 from .. import models
 from . import engine
@@ -52,7 +53,7 @@ class VOCTrainingEngine(engine.Engine):
 
         log.debug('Creating network')
         model_name = hyper_params.model_name
-        net = models.__dict__[model_name](hyper_params.classes, hyper_params.weights, train_flag=1, clear=hyper_params.clear)
+        net = models.__dict__[model_name](hyper_params.weights, train_flag=1, clear=hyper_params.clear)
         log.info('Net structure\n\n%s\n' % net)
         if self.cuda:
             net.cuda()
@@ -79,9 +80,9 @@ class VOCTrainingEngine(engine.Engine):
 
         super(VOCTrainingEngine, self).__init__(net, optim, dataloader)
 
-        self.nloss = self.network.nloss
+        #self.nloss = self.network.nloss
 
-        self.train_loss = [{'tot': [], 'coord': [], 'conf': [], 'cls': []} for _ in range(self.nloss)]
+        #self.train_loss = [{'tot': [], 'coord': [], 'conf': [], 'cls': []} for _ in range(self.nloss)]
 
     def start(self):
         log.debug('Creating additional logging objects')
@@ -105,51 +106,28 @@ class VOCTrainingEngine(engine.Engine):
         self.dataloader.change_input_dim()
 
     def process_batch(self, data):
-        data, target = data
-        # to(device)
-        if self.cuda:
-            data = data.cuda()
-        #data = torch.autograd.Variable(data, requires_grad=True)
+        loss = 0
+        cropped_imgs, labels = self.cropped_img_generatir(data)
 
-        loss = self.network(data, target)
-        loss.backward()
+        for id, pair in enumerate(cropped_imgs):
+            # to(device)
+            if self.cuda:
+                data1 = pair[0].cuda()
+                data2 = pair[1].cuda()
+            loss = self.network([data1,data2], labels[id])
+            loss.backward()
+        self.train_loss = float(loss.item())
 
-        for ii in range(self.nloss):
-            self.train_loss[ii]['tot'].append(self.network.loss[ii].loss_tot.item() / self.mini_batch_size)
-            self.train_loss[ii]['coord'].append(self.network.loss[ii].loss_coord.item() / self.mini_batch_size)
-            self.train_loss[ii]['conf'].append(self.network.loss[ii].loss_conf.item() / self.mini_batch_size)
-            if self.network.loss[ii].loss_cls is not None:
-                self.train_loss[ii]['cls'].append(self.network.loss[ii].loss_cls.item() / self.mini_batch_size)
+
     
     def train_batch(self):
         self.optimizer.step()
         self.optimizer.zero_grad()
 
-        all_tot = 0.0
-        all_coord = 0.0
-        all_conf = 0.0
-        all_cls = 0.0
-        for ii in range(self.nloss):
-            tot = mean(self.train_loss[ii]['tot'])
-            coord = mean(self.train_loss[ii]['coord'])
-            conf = mean(self.train_loss[ii]['conf'])
-            all_tot += tot
-            all_coord += coord
-            all_conf += conf
-            if self.classes > 1:
-                cls = mean(self.train_loss[ii]['cls'])
-                all_cls += cls
+        log.info(f'CUTIN Loss: {self.train_loss}')
 
-            if self.classes > 1:
-                log.info(f'{self.batch} # {ii}: Loss:{round(tot, 5)} (Coord:{round(coord, 2)} Conf:{round(conf, 2)} Cls:{round(cls, 2)})')
-            else:
-                log.info(f'{self.batch} # {ii}: Loss:{round(tot, 5)} (Coord:{round(coord, 2)} Conf:{round(conf, 2)})')
 
-        if self.classes > 1:
-            log.info(f'{self.batch} # All : Loss:{round(all_tot, 5)} (Coord:{round(all_coord, 2)} Conf:{round(all_conf, 2)} Cls:{round(all_cls, 2)})')
-        else:
-            log.info(f'{self.batch} # All : Loss:{round(all_tot, 5)} (Coord:{round(all_coord, 2)} Conf:{round(all_conf, 2)})')
-        self.train_loss = [{'tot': [], 'coord': [], 'conf': [], 'cls': []} for _ in range(self.nloss)]
+
         if self.batch % self.backup_rate == 0:
             self.network.save_weights(os.path.join(self.backup_dir, f'weights_{self.batch}.pt'))
 
@@ -172,3 +150,67 @@ class VOCTrainingEngine(engine.Engine):
             return True
         else:
             return False
+
+    def __build_targets_brambox(self, ground_truth, expand_ratio = 0.1):
+        """ Compare prediction boxes and ground truths, convert ground truths to network output tensors """
+        # Parameters
+        nB = len(ground_truth)
+        self.reduction = 1
+        # Tensors
+        GT = []
+        L = []
+        for b in range(nB):
+            if len(ground_truth[b]) == 0:  # No gt for this image
+                GT.append(0)
+                continue
+            # Build up tensors
+
+            gt = torch.zeros(len(ground_truth[b]), 4, device='cuda')
+            label = torch.zeros(len(ground_truth[b]), device='cuda')
+            for i, anno in enumerate(ground_truth[b]):
+                gt[i, 0] = (anno.x_top_left) / self.reduction * (1.0 - expand_ratio)
+                gt[i, 1] = (anno.y_top_left) / self.reduction * (1.0 - expand_ratio)
+                gt[i, 2] = (anno.x_top_left + anno.width) / self.reduction * (1.0 + expand_ratio)
+                gt[i, 3] = (anno.y_top_left + anno.height) / self.reduction * (1.0 + expand_ratio)
+                if anno.cutin == 1.0:
+                    label[i] = 1
+            gt.cuda()
+            GT.append(gt)
+
+            label.cuda()
+            if len(L)!=0:
+                L = [torch.cat((L[0],label),0)]
+            else:
+                L.append(label)
+        if len(L) == 0:
+            return GT, None
+        else:
+            return GT, L[0]
+
+    def cropped_img_generatir(self, data):
+
+        img1, img2, target = data
+
+        boxes, labels = self.__build_targets_brambox(target)
+
+        imgs = []
+        for id, one in enumerate(boxes):
+
+            t1 = img1[id,:,:,:]
+            t2 = img2[id,:,:,:]
+
+            t1 = tf.ToPILImage()(t1)
+            t2 = tf.ToPILImage()(t2)
+
+            if isinstance(one, torch.Tensor):
+                bndboxes = one.cpu().numpy().tolist()
+                for box in bndboxes:
+                    tmp1 = t1.crop((box[0],box[1],box[2],box[3]))
+                    tmp1 = tmp1.resize((160,160),Image.BILINEAR)
+                    tmp2 = t2.crop((box[0], box[1], box[2], box[3]))
+                    tmp2 = tmp2.resize((160, 160), Image.BILINEAR)
+                    imgs.append([tmp1,tmp2])
+
+        cropped_imgs = [[tf.ToTensor()(one[0]),tf.ToTensor()(one[1])] for one in imgs] #cropped imgs from one image for cutin
+
+        return cropped_imgs, labels

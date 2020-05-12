@@ -92,6 +92,7 @@ class Annotation(b.Box):
             instance.visible_y_top_left = obj.visible_y_top_left
             instance.visible_width = obj.visible_width
             instance.visible_height = obj.visible_height
+            instance.cutin = obj.cutin
         elif isinstance(obj, det.Detection):
             instance.lost = False
             instance.difficult = False
@@ -100,6 +101,7 @@ class Annotation(b.Box):
             instance.visible_y_top_left = 0.0
             instance.visible_width = 0.0
             instance.visible_height = 0.0
+            instance.cutin = obj.cutin
 
         return instance
 
