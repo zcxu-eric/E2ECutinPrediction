@@ -46,9 +46,8 @@ class CutinNet(nn.Module):
         self.pre_layers = nn.ModuleList([nn.Sequential(layer_dict_pre) for layer_dict_pre in layers_list_pre])
         self.suc_layers = nn.ModuleList([nn.Sequential(layer_dict_suc) for layer_dict_suc in layers_list_suc])
 
-        self.dense_1 = nn.Linear(1*464*5*5,4000)
-        self.dense_2 = nn.Linear(4000,200)
-        self.dense_3 = nn.Linear(200, 2)
+        self.dense_1 = nn.Linear(1*464*5*5,200)
+        self.dense_2 = nn.Linear(200, 2)
 
 
     def forward(self, x, target):
@@ -68,8 +67,7 @@ class CutinNet(nn.Module):
         stage6 = self.suc_layers[1](stage5) #1,464,5,5
         d1 = self.dense_1(torch.flatten(stage6))
         d2 = self.dense_2(d1)
-        d3 = self.dense_3(d2)
-        output = d3.unsqueeze(dim = 0)
+        output = d2.unsqueeze(dim = 0)
         # ROI Align
         loss = nn.CrossEntropyLoss()(output, target.long())
         if self.train_flag == 2:
