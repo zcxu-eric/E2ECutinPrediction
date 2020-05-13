@@ -48,6 +48,8 @@ class Letterbox(BaseMultiTransform):
     def __call__(self, data):
         if data is None:
             return None
+        elif isinstance(data,list) and len(data) == 2 and isinstance(data[0], Image.Image):
+            return self._tf_list(data)
         elif isinstance(data, collections.Sequence):
             return self._tf_anno(data)
         elif isinstance(data, Image.Image):
@@ -57,6 +59,43 @@ class Letterbox(BaseMultiTransform):
         else:
             log.error(f'Letterbox only works with <brambox annotation lists>, <PIL images> or <OpenCV images> [{type(data)}]')
             return data
+
+    def _tf_list(self, img):
+        """ Letterbox an image list to fit in the network """
+        if self.dataset is not None:
+            net_w, net_h = self.dataset.input_dim
+        else:
+            net_w, net_h = self.dimension
+        im_w, im_h = img[0].size
+
+        if im_w == net_w and im_h == net_h:
+            self.scale = None
+            self.pad = None
+            return img
+
+        # Rescaling
+        if im_w / net_w >= im_h / net_h:
+            self.scale = net_w / im_w
+        else:
+            self.scale = net_h / im_h
+        if self.scale != 1:
+            resample_mode = Image.NEAREST #Image.BILINEAR if self.scale > 1 else Image.ANTIALIAS
+            img = [one.resize((int(self.scale*im_w), int(self.scale*im_h)), resample_mode) for one in img]
+            im_w, im_h = img[0].size
+
+        if im_w == net_w and im_h == net_h:
+            self.pad = None
+            return img
+
+        # Padding
+        img_np = np.array(img[0])
+        channels = img_np.shape[2] if len(img_np.shape) > 2 else 1
+        pad_w = (net_w - im_w) / 2
+        pad_h = (net_h - im_h) / 2
+        self.pad = (int(pad_w), int(pad_h), int(pad_w+.5), int(pad_h+.5))
+        img = [ImageOps.expand(one, border=self.pad, fill=(self.fill_color,)*channels) for one in img]
+
+        return img
 
     def _tf_pil(self, img):
         """ Letterbox an image to fit in the network """

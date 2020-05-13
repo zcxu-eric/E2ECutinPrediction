@@ -1,16 +1,19 @@
 import logging as log
 import torch
 from torchvision import transforms as tf
+import torch.nn.functional as F
 from statistics import mean
 import os
 import glob
 import re
+import numpy as np
 
 from .. import data as vn_data
 from .. import models
 from . import engine
 from utils.test import voc_wrapper
 from utils.test.datasets import voc_eval
+from ..data.crop_tools import cropped_img_generatir
 __all__ = ['VOCTest']
 
 class CustomDataset(vn_data.BramboxDataset):
@@ -23,7 +26,7 @@ class CustomDataset(vn_data.BramboxDataset):
 
         lb  = vn_data.transform.Letterbox(network_size)
         it  = tf.ToTensor()
-        img_tf = vn_data.transform.Compose([lb, it])
+        img_tf = vn_data.transform.Compose([lb])
         anno_tf = vn_data.transform.Compose([lb])
 
         def identify(img_id):
@@ -32,10 +35,10 @@ class CustomDataset(vn_data.BramboxDataset):
         super(CustomDataset, self).__init__('anno_pickle', anno, network_size, labels, identify, img_tf, anno_tf)
 
     def __getitem__(self, index):
-        img, anno = super(CustomDataset, self).__getitem__(index)
+        imgcur, imgpre, anno = super(CustomDataset, self).__getitem__(index)
         for a in anno:
             a.ignore = a.difficult  # Mark difficult annotations as ignore for pr metric
-        return img, anno
+        return imgcur, imgpre, anno
 
 
 def VOCTest(hyper_params):
@@ -56,7 +59,7 @@ def VOCTest(hyper_params):
     results = hyper_params.results
 
     test_args = {'conf_thresh': conf_thresh, 'network_size': network_size, 'labels': labels}
-    net = models.__dict__[model_name](hyper_params.classes, weights, train_flag=2, test_args=test_args)
+    net = models.__dict__[model_name](weights, train_flag=2, test_args=test_args)
     net.eval()
     log.info('Net structure\n%s' % net)
     #import pdb
@@ -76,29 +79,44 @@ def VOCTest(hyper_params):
     )
 
     log.debug('Running network')
-    tot_loss = []
-    coord_loss = []
-    conf_loss = []
-    cls_loss = []
-    anno, det = {}, {}
-    num_det = 0
-
-    for idx, (data, box) in enumerate(loader):
+    total = 0
+    correct = 0
+    cutin_correct = 0
+    cutin_total = 0
+    confusion_matrix = np.zeros(shape=(2,2))
+    for idx, data in enumerate(loader):
         if (idx + 1) % 20 == 0: 
             log.info('%d/%d' % (idx + 1, len(loader)))
-        if use_cuda:
-            data = data.cuda()
-        with torch.no_grad():
-            output, loss = net(data, box)
+        cropped_imgs, labels = cropped_img_generatir(data)
+        total += len(labels)
+        for id, pair in enumerate(cropped_imgs):
+            # to(device)
+            if use_cuda:
+                data1 = pair[0].cuda()
+                data2 = pair[1].cuda()
+                with torch.no_grad():
+                    output = net([data1,data2], labels[id])
+                score = F.softmax(output,dim=1).cpu().numpy()
+                pred = np.argmax(score)
+                gt = labels[id]
+                gt = int(gt.cpu().numpy())
+                confusion_matrix[gt,pred] += 1
+                if gt:
+                    cutin_total += 1
+                    if pred:
+                        cutin_correct += 1
+                if (int(pred) == gt):
+                    correct += 1
+    print(float(correct/total),cutin_correct/cutin_total)
+    print(confusion_matrix)
 
-        key_val = len(anno)
-        anno.update({loader.dataset.keys[key_val+k]: v for k,v in enumerate(box)})
-        det.update({loader.dataset.keys[key_val+k]: v for k,v in enumerate(output)})
+        #key_val = len(anno)
+        #anno.update({loader.dataset.keys[key_val+k]: v for k,v in enumerate(box)})
+        #det.update({loader.dataset.keys[key_val+k]: v for k,v in enumerate(output)})
 
-    netw, neth = network_size
-    reorg_dets = voc_wrapper.reorgDetection(det, netw, neth) #, prefix)
-    voc_wrapper.genResults(reorg_dets, results, nms_thresh)
 
+
+def calculate_map(hyper_params):
     ###################################
     #calculate mAP  2020.5.9  by xzc  #
     ###################################

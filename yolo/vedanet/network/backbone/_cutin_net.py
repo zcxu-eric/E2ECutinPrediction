@@ -12,9 +12,10 @@ __all__ = ['cutinnet']
 
 # default shufflenetv2 1x
 class CutinNet(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self, cfg, train_flag = 1):
         super().__init__()
         self.seen = 0
+        self.train_flag = train_flag
         out_planes = cfg['out_channels']
         num_blocks = cfg['num_blocks']
         groups = cfg['groups']
@@ -67,12 +68,14 @@ class CutinNet(nn.Module):
         stage6 = self.suc_layers[1](stage5) #1,464,5,5
         d1 = self.dense_1(torch.flatten(stage6))
         d2 = self.dense_2(d1)
-        output = self.dense_3(d2)
-        output = output.unsqueeze(dim = 0)
+        d3 = self.dense_3(d2)
+        output = d3.unsqueeze(dim = 0)
         # ROI Align
         loss = nn.CrossEntropyLoss()(output, target.long())
-
-        return loss
+        if self.train_flag == 2:
+            return output
+        else:
+            return loss
 
 
 

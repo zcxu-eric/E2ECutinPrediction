@@ -17,7 +17,7 @@ class CutinPredNet(CutinNet):
         'out_channels': (116, 232, 464),
         'num_blocks': (3, 7, 3),
         'groups': 2
-    })
+    }, train_flag=train_flag)
 
         self.train_flag = train_flag
         self.test_args = test_args

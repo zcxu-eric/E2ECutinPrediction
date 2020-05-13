@@ -42,8 +42,8 @@ test:
     pin_mem: True
 
     input_shape: [544, 544]
-    batch_size: 16
-    weights: "outputs/RegionShufflenetv2/baseline/weights/backup.pt"
+    batch_size: 8
+    weights: "outputs/CutinPredNet/baseline/weights/backup.pt"
 
     conf_thresh: 0.005
     nms_thresh: 0.45

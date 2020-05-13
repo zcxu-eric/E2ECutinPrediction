@@ -84,13 +84,19 @@ class BramboxDataset(Dataset):
 
         anno = copy.deepcopy(self.annos[self.keys[index]])
         random.shuffle(anno)
-
         # Transform
         if self.img_tf is not None:
-            a = isinstance([imgcur,imgpre], list)
-            [imgcur,imgpre] = self.img_tf([imgcur,imgpre])
+            [imgcur, imgpre] = self.img_tf([imgcur, imgpre])
+            try:
+                #[imgcur,imgpre] = self.img_tf([imgcur,imgpre])
+                pass
+            except:
+                print(self.id(self.keys[index]))
             imgcur = F.to_tensor(imgcur)
-            imgpre = F.to_tensor(imgpre)
+            try:
+                imgpre = F.to_tensor(imgpre)
+            except:
+                print(self.id(self.keys[index]))
             #imgcur.show()
             #imgpre.show()
         if self.anno_tf is not None:
