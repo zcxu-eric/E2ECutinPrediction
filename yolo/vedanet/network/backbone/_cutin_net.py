@@ -51,7 +51,7 @@ class CutinNet(nn.Module):
 
 
     def forward(self, x, target):
-        self.seen += x[0].size(0)
+        self.seen += 1
         # x conaints consecutive frames
         # divide x into x1 and x2
         x1 = x[0].unsqueeze(dim = 0)
