@@ -126,7 +126,7 @@ class VOCTrainingEngine(engine.Engine):
         self.optimizer.step()
         self.optimizer.zero_grad()
 
-        log.info(f'CUTIN Loss: {self.train_loss}')
+        log.info(f'{self.batch}/{self.max_batches} CUTIN Loss: {self.train_loss}')
 
 
 
@@ -201,7 +201,10 @@ class VOCTrainingEngine(engine.Engine):
                     nocut.extend([cropped_imgs[id]])
             nocut = sample(nocut, int(0.5*len(nocut)))
             if len(self.cutin_pool) > len(nocut)-len(cut):
-                cut.extend(sample(self.cutin_pool,len(nocut)-len(cut)))
+                try:
+                    cut.extend(sample(self.cutin_pool,len(nocut)-len(cut)))
+                except:
+                    log.INFO(f'sample{len(nocut)-len(cut)} out of range{len(self.cutin_pool)}!')
             else:
                 cut.extend(sample(self.cutin_pool, len(self.cutin_pool)))
             imgs = nocut+cut

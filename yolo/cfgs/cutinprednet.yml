@@ -19,15 +19,15 @@ train:
 
     clear: False
 
-    warmup_lr: 0.0001
-    lr_steps: [400,700,900,1000, 40000,60000,80000, 120000,140000]
-    lr_rates: [0.0005,0.001,0.002,0.02, 0.002,0.0002,0.001, 0.0001, 0.00001]
+    warmup_lr: 0.001
+    lr_steps: [5000,10000,40000,60000,80000, 120000,140000]
+    lr_rates: [0.001,0.0005,0.0002,0.0001,0.0001, 0.0001, 0.00001]
     max_batches: 160200
-    resize_interval: 10
+    resize_interval: 50
 
-    backup_interval: 200
-    backup_steps: [1000, 60000]
-    backup_rates: [10000, 200]
+    backup_interval: 50
+    backup_steps: [500, 500]
+    backup_rates: [1000, 200]
 
     input_shape: [608, 608]
     batch_size: 8
