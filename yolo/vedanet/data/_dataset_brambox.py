@@ -71,7 +71,7 @@ class BramboxDataset(Dataset):
             tuple: (transformed image, list of transformed brambox boxes)
         """
         if index >= len(self):
-            raise IndexError(f'list index out of range [{index}/{len(self)-1}]')
+            raise IndexError(f'list index out of range [{index}/{len(self)-2}]')
 
         # Load
         imgcur = Image.open(self.id(self.keys[index]))

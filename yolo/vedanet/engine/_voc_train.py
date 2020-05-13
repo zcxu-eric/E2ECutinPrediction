@@ -4,6 +4,7 @@ from torchvision import transforms as tf
 from statistics import mean
 import os
 import numpy as np
+from random import sample,shuffle
 from PIL import Image
 from .. import data
 from .. import models
@@ -36,6 +37,7 @@ class VOCDataset(data.BramboxDataset):
         super(VOCDataset, self).__init__('anno_pickle', anno, network_size, labels, identify, img_tf, anno_tf)
 
 
+
 class VOCTrainingEngine(engine.Engine):
     """ This is a custom engine for this training cycle """
 
@@ -50,7 +52,7 @@ class VOCTrainingEngine(engine.Engine):
 
         self.cuda = hyper_params.cuda
         self.backup_dir = hyper_params.backup_dir
-
+        self.cutin_pool = []
         log.debug('Creating network')
         model_name = hyper_params.model_name
         net = models.__dict__[model_name](hyper_params.weights, train_flag=1, clear=hyper_params.clear)
@@ -165,8 +167,9 @@ class VOCTrainingEngine(engine.Engine):
                 continue
             # Build up tensors
 
-            gt = torch.zeros(len(ground_truth[b]), 4, device='cuda')
-            label = torch.zeros(len(ground_truth[b]), device='cuda')
+            gt = np.zeros((len(ground_truth[b]), 4))
+            label = np.zeros(len(ground_truth[b]))
+            #one img
             for i, anno in enumerate(ground_truth[b]):
                 gt[i, 0] = (anno.x_top_left) / self.reduction * (1.0 - expand_ratio)
                 gt[i, 1] = (anno.y_top_left) / self.reduction * (1.0 - expand_ratio)
@@ -174,18 +177,48 @@ class VOCTrainingEngine(engine.Engine):
                 gt[i, 3] = (anno.y_top_left + anno.height) / self.reduction * (1.0 + expand_ratio)
                 if anno.cutin == 1.0:
                     label[i] = 1
-            gt.cuda()
             GT.append(gt)
-
-            label.cuda()
             if len(L)!=0:
-                L = [torch.cat((L[0],label),0)]
+                L = [np.hstack((L[0],label))]
             else:
                 L.append(label)
-        if len(L) == 0:
+        if len(L) == 0 or not L:
             return GT, None
         else:
             return GT, L[0]
+
+    def cutin_balance(self, cropped_imgs, labels):
+        if len(cropped_imgs) == 0:
+            return
+        else:
+            nocut = []
+            cut = []
+            for id, one in enumerate(list(labels)):
+                if one:
+                    cut.extend([cropped_imgs[id]])
+                    self.cutin_pool.extend([cropped_imgs[id]])
+                else:
+                    nocut.extend([cropped_imgs[id]])
+            nocut = sample(nocut, int(0.5*len(nocut)))
+            if len(self.cutin_pool) > len(nocut)-len(cut):
+                cut.extend(sample(self.cutin_pool,len(nocut)-len(cut)))
+            else:
+                cut.extend(sample(self.cutin_pool, len(self.cutin_pool)))
+            imgs = nocut+cut
+            lnocut = np.zeros(len(nocut))
+            lcut = np.ones(len(cut))
+            label = np.hstack((lnocut,lcut))
+            ind = list(range(len(imgs)))
+            com = list(zip(ind,imgs))
+            shuffle(com)
+            ind, imgs = zip(*com)
+            imgs = list(imgs)
+            label_new = label[list(ind)]
+            label_t = torch.from_numpy(label_new).cuda()
+
+
+        return imgs, label_t
+
 
     def cropped_img_generatir(self, data):
 
@@ -202,8 +235,8 @@ class VOCTrainingEngine(engine.Engine):
             t1 = tf.ToPILImage()(t1)
             t2 = tf.ToPILImage()(t2)
 
-            if isinstance(one, torch.Tensor):
-                bndboxes = one.cpu().numpy().tolist()
+            if not isinstance(one,int):
+                bndboxes = one.tolist()
                 for box in bndboxes:
                     tmp1 = t1.crop((box[0],box[1],box[2],box[3]))
                     tmp1 = tmp1.resize((160,160),Image.BILINEAR)
@@ -212,5 +245,6 @@ class VOCTrainingEngine(engine.Engine):
                     imgs.append([tmp1,tmp2])
 
         cropped_imgs = [[tf.ToTensor()(one[0]),tf.ToTensor()(one[1])] for one in imgs] #cropped imgs from one image for cutin
+        cropped_imgs, labels = self.cutin_balance(cropped_imgs, labels)
 
         return cropped_imgs, labels
