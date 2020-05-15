@@ -107,7 +107,7 @@ def VOCTest(hyper_params):
                         cutin_correct += 1
                 if (int(pred) == gt):
                     correct += 1
-    cmd = 'cp ' + hyper_params.weights + ' ' + 'weights/' + 'cutinprednet_%f.pth' % (correct/total)
+    cmd = 'cp ' + hyper_params.weights + ' ' + 'weights/' + 'cutinprednet_%.3f_%.3f.pth' % (correct/total,cutin_correct/cutin_total)
     os.system(cmd)
     print(float(correct/total),cutin_correct/cutin_total)
     print(confusion_matrix)

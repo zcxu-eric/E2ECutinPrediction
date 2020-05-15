@@ -132,7 +132,8 @@ class Engine(ABC):
         Return:
             int: Computed as self.network.seen // self.batch_size
         """
-        return int((self.network.seen // self.batch_size)/10)*10
+        #return self.network.seen
+        return self.network.seen // self.batch_size
 
     @property
     def batch_subdivisions(self):
