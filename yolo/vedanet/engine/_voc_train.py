@@ -164,7 +164,6 @@ class VOCTrainingEngine(engine.Engine):
         L = []
         for b in range(nB):
             if len(ground_truth[b]) == 0:  # No gt for this image
-                GT.append(0)
                 continue
             # Build up tensors
 
@@ -218,6 +217,7 @@ class VOCTrainingEngine(engine.Engine):
             try:
                 ind, imgs = zip(*com)
             except:
+                print('ERROR!')
                 return None, None
             imgs = list(imgs)
             label_new = label[list(ind)]
