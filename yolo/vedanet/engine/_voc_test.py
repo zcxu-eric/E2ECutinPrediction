@@ -112,7 +112,7 @@ def VOCTest(hyper_params):
                     correct += 1
     cmd = 'cp ' + hyper_params.weights + ' ' + 'weights/' + 'cutinprednet_%.3f_%.3f.pth' % (correct/total,cutin_correct/cutin_total)
     os.system(cmd)
-    print(total,cutin_total)
+    print(f'top1-accuracy:{correct/total},cutin accuracy: {cutin_correct/cutin_total}')
     print(confusion_matrix)
 
         #key_val = len(anno)

@@ -120,7 +120,10 @@ class VOCTrainingEngine(engine.Engine):
                 data2 = pair[1].cuda()
             loss = self.network([data1,data2], labels[id])
             loss.backward()
-        self.train_loss = float(loss.item())
+        try:
+            self.train_loss = float(loss.item())
+        except:
+            pass
 
 
     
