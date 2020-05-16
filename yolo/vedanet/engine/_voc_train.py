@@ -197,17 +197,17 @@ class VOCTrainingEngine(engine.Engine):
             for id, one in enumerate(list(labels)):
                 if one:
                     cut.extend([cropped_imgs[id]])
+                    if len(self.cutin_pool>=1000):
+                        self.cutin_pool = sample(self.cutin_pool, 500)
                     self.cutin_pool.extend([cropped_imgs[id]])
                 else:
                     nocut.extend([cropped_imgs[id]])
             nocut = sample(nocut, int(0.5*len(nocut)))
-            if len(self.cutin_pool) > len(nocut)-len(cut):
-                try:
+            if len(nocut) > len(cut):
+                if len(self.cutin_pool) > len(nocut)-len(cut):
                     cut.extend(sample(self.cutin_pool,len(nocut)-len(cut)))
-                except:
-                    log.INFO(f'sample {len(nocut)-len(cut)} out of range {len(self.cutin_pool)}!')
-            else:
-                cut.extend(sample(self.cutin_pool, len(self.cutin_pool)))
+                else:
+                    cut.extend(sample(self.cutin_pool, len(self.cutin_pool)))
             imgs = nocut+cut
             lnocut = np.zeros(len(nocut))
             lcut = np.ones(len(cut))
