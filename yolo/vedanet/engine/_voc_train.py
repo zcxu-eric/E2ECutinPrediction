@@ -191,7 +191,7 @@ class VOCTrainingEngine(engine.Engine):
         for id, one in enumerate(labels):
             if one:
                 cut.extend([cropped_imgs[id]])
-                if len(self.cutin_pool>=1000):
+                if len(self.cutin_pool) >= 1000:
                     self.cutin_pool = sample(self.cutin_pool, 500)
                 self.cutin_pool.extend([cropped_imgs[id]])
             else:
