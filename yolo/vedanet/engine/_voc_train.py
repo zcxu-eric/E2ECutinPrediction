@@ -113,15 +113,21 @@ class VOCTrainingEngine(engine.Engine):
     def process_batch(self, data):
         loss = 0
         cropped_imgs, labels = self.cropped_img_generatir(data)
-        if cropped_imgs == None:
+        newlabels = labels.view(-1,1)
+        if cropped_imgs == None or len(cropped_imgs)==0:
             return
-        for id, pair in enumerate(cropped_imgs):
-            # to(device)
-            if self.cuda:
-                data1 = pair[0].cuda()
-                data2 = pair[1].cuda()
-            loss = self.network([data1,data2], labels[id])
-            loss.backward()
+        data1 = cropped_imgs[0][0].unsqueeze(dim = 0)
+        data2 = cropped_imgs[0][1].unsqueeze(dim = 0)
+        if len(cropped_imgs) > 1:
+            for i in range(1,len(cropped_imgs)):
+                data1 = torch.cat((data1,cropped_imgs[i][0].unsqueeze(dim = 0)),dim=0)
+                data2 = torch.cat((data2,cropped_imgs[i][1].unsqueeze(dim = 0)),dim=0)
+        if self.cuda:
+            data1 = data1.cuda()
+            data2 = data2.cuda()
+
+        loss = self.network([data1,data2], labels)
+        loss.backward()
         try:
             self.train_loss = float(loss.item())
         except:

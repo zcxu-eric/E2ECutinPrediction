@@ -12,7 +12,7 @@ __all__ = ['cutinnet']
 
 # default shufflenetv2 1x
 class CutinNet(nn.Module):
-    def __init__(self, cfg, train_flag = 1):
+    def __init__(self, cfg, train_flag = 1, mini_batch = 1):
         super().__init__()
         self.seen = 0
         self.train_flag = train_flag
@@ -51,18 +51,17 @@ class CutinNet(nn.Module):
         self.pre_layers = nn.ModuleList([nn.Sequential(layer_dict_pre) for layer_dict_pre in layers_list_pre])
         self.suc_layers = nn.ModuleList([nn.Sequential(layer_dict_suc) for layer_dict_suc in layers_list_suc])
 
-        self.dense_1 = nn.Linear(1*928*3*3, 200)
+        self.dense_1 = nn.Linear(928*3*3, 200)
         self.dense_2 = nn.Linear(200, 2)
 
 
     def forward(self, x, target):
-        self.seen += 1
+
         # x conaints consecutive frames
         # divide x into x1 and x2
-        x1 = x[0].unsqueeze(dim = 0)
-        x2 = x[1].unsqueeze(dim = 0)
-        target = target.unsqueeze(dim = 0)
-
+        x1 = x[0]
+        x2 = x[1]
+        self.seen += x1.size(0)
         stem_1 = self.pre_layers[0](x1) #bs,24,128,128
         stage4_1 = self.pre_layers[1](stem_1)
         stem_2 = self.pre_layers[0](x2)
@@ -71,9 +70,10 @@ class CutinNet(nn.Module):
         stage5 = self.suc_layers[0](stage4)
         stage6 = self.suc_layers[1](stage5) #1,464,5,5
         stage7 = self.suc_layers[2](stage6)
-        d1 = self.dense_1(torch.flatten(stage7))
+        stage7 = stage7.view(stage7.size(0),-1)
+        d1 = self.dense_1(stage7)
         d2 = self.dense_2(d1)
-        output = d2.unsqueeze(dim = 0)
+        output = d2
         # ROI Align
         loss = nn.CrossEntropyLoss()(output, target.long())
         if self.train_flag == 2:
