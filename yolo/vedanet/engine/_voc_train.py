@@ -27,8 +27,8 @@ class VOCDataset(data.BramboxDataset):
         it  = tf.ToTensor()
 
         #img_tf = data.transform.Compose([rc, rf, hsv, it])
-        img_tf = data.transform.Compose([rc, rf, hsv])
-        anno_tf = data.transform.Compose([rc, rf])
+        img_tf = data.transform.Compose([rf, hsv])
+        anno_tf = data.transform.Compose([rf])
 
         def identify(img_id):
             #return f'{root}/VOCdevkit/{img_id}.jpg'
@@ -53,6 +53,7 @@ class VOCTrainingEngine(engine.Engine):
         self.cuda = hyper_params.cuda
         self.backup_dir = hyper_params.backup_dir
         self.cutin_pool = []
+        self.lastbatch = 0
         log.debug('Creating network')
         model_name = hyper_params.model_name
         net = models.__dict__[model_name](hyper_params.weights, train_flag=1, clear=hyper_params.clear)
@@ -130,19 +131,20 @@ class VOCTrainingEngine(engine.Engine):
         log.info(f'{self.batch}/{self.max_batches} CUTIN Loss: {self.train_loss}')
 
 
-
-        if self.batch % self.backup_rate == 0:
+        if self.batch % self.backup_rate == 0 and self.lastbatch != self.batch:
             self.network.save_weights(os.path.join(self.backup_dir, f'weights_{self.batch}.pt'))
 
-        if self.batch % 100 == 0:
+        if self.batch % 100 == 0 and self.lastbatch != self.batch:
             self.network.save_weights(os.path.join(self.backup_dir, f'backup.pt'))
 
-        if self.batch % self.resize_rate == 0:
+        if self.batch % self.resize_rate == 0  and self.lastbatch != self.batch:
             if self.batch + 200 >= self.max_batches:
                 finish_flag = True
             else:
                 finish_flag = False
             self.dataloader.change_input_dim(finish=finish_flag)
+
+        self.lastbatch = self.batch
 
     def quit(self):
         if self.sigint:
@@ -154,7 +156,7 @@ class VOCTrainingEngine(engine.Engine):
         else:
             return False
 
-    def __build_targets_brambox(self, ground_truth, expand_ratio = 0.1):
+    def __build_targets_brambox(self, ground_truth, expand_ratio = 0.0):
         """ Compare prediction boxes and ground truths, convert ground truths to network output tensors """
         # Parameters
         nB = len(ground_truth)
@@ -164,6 +166,8 @@ class VOCTrainingEngine(engine.Engine):
         L = []
         for b in range(nB):
             if len(ground_truth[b]) == 0:  # No gt for this image
+                GT.append('NULL') #hold the position for image without annotations
+                L.append('NULL')  #hold the position for image without annotations
                 continue
             # Build up tensors
 
@@ -178,50 +182,37 @@ class VOCTrainingEngine(engine.Engine):
                 if anno.cutin == 1.0:
                     label[i] = 1
             GT.append(gt)
-            if len(L)!=0:
-                L = [np.hstack((L[0],label))]
-            else:
-                L.append(label)
-        if len(L) == 0 or not L:
-            return GT, None
-        else:
-            return GT, L[0]
+            L.append(label)
+        return GT, L
 
     def cutin_balance(self, cropped_imgs, labels):
-        if len(cropped_imgs) == 0 or labels.shape==0:
-            return
-        else:
-            nocut = []
-            cut = []
-            for id, one in enumerate(list(labels)):
-                if one:
-                    cut.extend([cropped_imgs[id]])
-                    if len(self.cutin_pool>=1000):
-                        self.cutin_pool = sample(self.cutin_pool, 500)
-                    self.cutin_pool.extend([cropped_imgs[id]])
-                else:
-                    nocut.extend([cropped_imgs[id]])
-            nocut = sample(nocut, int(0.5*len(nocut)))
-            if len(nocut) > len(cut):
-                if len(self.cutin_pool) > len(nocut)-len(cut):
-                    cut.extend(sample(self.cutin_pool,len(nocut)-len(cut)))
-                else:
-                    cut.extend(sample(self.cutin_pool, len(self.cutin_pool)))
-            imgs = nocut+cut
-            lnocut = np.zeros(len(nocut))
-            lcut = np.ones(len(cut))
-            label = np.hstack((lnocut,lcut))
-            ind = list(range(len(imgs)))
-            com = list(zip(ind,imgs))
-            shuffle(com)
-            try:
-                ind, imgs = zip(*com)
-            except:
-                print('ERROR!')
-                return None, None
-            imgs = list(imgs)
-            label_new = label[list(ind)]
-            label_t = torch.from_numpy(label_new).cuda()
+        nocut = []
+        cut = []
+        for id, one in enumerate(labels):
+            if one:
+                cut.extend([cropped_imgs[id]])
+                if len(self.cutin_pool>=1000):
+                    self.cutin_pool = sample(self.cutin_pool, 500)
+                self.cutin_pool.extend([cropped_imgs[id]])
+            else:
+                nocut.extend([cropped_imgs[id]])
+        nocut = sample(nocut, int(0.5*len(nocut)))
+        if len(nocut) > len(cut):
+            if len(self.cutin_pool) > len(nocut)-len(cut):
+                cut.extend(sample(self.cutin_pool,len(nocut)-len(cut)))
+            else:
+                cut.extend(sample(self.cutin_pool, len(self.cutin_pool)))
+        imgs = nocut+cut
+        lnocut = np.zeros(len(nocut))
+        lcut = np.ones(len(cut))
+        label = np.hstack((lnocut,lcut))
+        ind = list(range(len(imgs)))
+        com = list(zip(ind,imgs))
+        shuffle(com)
+        ind, imgs = zip(*com)
+        imgs = list(imgs)
+        label_new = label[list(ind)]
+        label_t = torch.from_numpy(label_new).cuda()
 
 
         return imgs, label_t
@@ -232,28 +223,32 @@ class VOCTrainingEngine(engine.Engine):
         img1, img2, target = data
 
         boxes, labels = self.__build_targets_brambox(target)
-
+        if len(boxes) == 0:
+            return None, None
         imgs = []
+        labelseq = []
         for id, one in enumerate(boxes):
-
-            t1 = img1[id,:,:,:]
-            t2 = img2[id,:,:,:]
-
-            t1 = tf.ToPILImage()(t1)
-            t2 = tf.ToPILImage()(t2)
-
-            if not isinstance(one,int):
+            if not isinstance(one, str):
                 bndboxes = one.tolist()
-                for box in bndboxes:
+                imglabels = labels[id].tolist()
+
+                t1 = img1[id,:,:,:]
+                t2 = img2[id,:,:,:]
+                t1 = tf.ToPILImage()(t1)
+                t2 = tf.ToPILImage()(t2)
+
+
+                for ii,box in enumerate(bndboxes):
                     tmp1 = t1.crop((box[0],box[1],box[2],box[3]))
                     tmp1 = tmp1.resize((160,160),Image.BILINEAR)
                     tmp2 = t2.crop((box[0], box[1], box[2], box[3]))
                     tmp2 = tmp2.resize((160, 160), Image.BILINEAR)
+                    tmp1.show()
+                    tmp2.show()
                     imgs.append([tmp1,tmp2])
-
-        cropped_imgs = [[tf.ToTensor()(one[0]),tf.ToTensor()(one[1])] for one in imgs] #cropped imgs from one image for cutin
-        try:
-            cropped_imgs, labels = self.cutin_balance(cropped_imgs, labels)
-            return cropped_imgs, labels
-        except:
+                    labelseq.append(imglabels[ii])
+        if len(imgs) == 0:
             return None, None
+        cropped_imgs = [[tf.ToTensor()(one[0]),tf.ToTensor()(one[1])] for one in imgs] #cropped imgs from one image for cutin
+        cropped_imgs, labels = self.cutin_balance(cropped_imgs, labelseq)
+        return cropped_imgs, labels
