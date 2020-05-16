@@ -129,6 +129,7 @@ class VOCTrainingEngine(engine.Engine):
         self.optimizer.zero_grad()
 
         log.info(f'{self.batch}/{self.max_batches} CUTIN Loss: {self.train_loss}')
+        print(f'{self.batch}/{self.max_batches} CUTIN Loss: {self.train_loss}')
 
 
         if self.batch % self.backup_rate == 0 and self.lastbatch != self.batch:
@@ -209,7 +210,10 @@ class VOCTrainingEngine(engine.Engine):
         ind = list(range(len(imgs)))
         com = list(zip(ind,imgs))
         shuffle(com)
-        ind, imgs = zip(*com)
+        try:
+            ind, imgs = zip(*com)
+        except:
+            pass
         imgs = list(imgs)
         label_new = label[list(ind)]
         label_t = torch.from_numpy(label_new).cuda()
