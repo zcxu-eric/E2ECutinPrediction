@@ -46,8 +46,8 @@ class CutinNet(nn.Module):
         self.pre_layers = nn.ModuleList([nn.Sequential(layer_dict_pre) for layer_dict_pre in layers_list_pre])
         self.suc_layers = nn.ModuleList([nn.Sequential(layer_dict_suc) for layer_dict_suc in layers_list_suc])
 
-        self.dense_1 = nn.Linear(1*464*5*5,200)
-        self.dense_2 = nn.Linear(200, 2)
+        self.dense_1 = nn.Linear(1*464*5*5,2000)
+        self.dense_2 = nn.Linear(2000, 2)
 
 
     def forward(self, x, target):

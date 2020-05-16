@@ -9,6 +9,7 @@ from PIL import Image
 from .. import data
 from .. import models
 from . import engine
+import queue
 
 __all__ = ['VOCTrainingEngine']
 
@@ -54,6 +55,7 @@ class VOCTrainingEngine(engine.Engine):
         self.backup_dir = hyper_params.backup_dir
         self.cutin_pool = []
         self.lastbatch = 0
+        self.dataq = queue.Queue(maxsize= 0)
         log.debug('Creating network')
         model_name = hyper_params.model_name
         net = models.__dict__[model_name](hyper_params.weights, train_flag=1, clear=hyper_params.clear)

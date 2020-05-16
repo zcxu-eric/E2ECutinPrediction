@@ -87,11 +87,6 @@ class BramboxDataset(Dataset):
         # Transform
         if self.img_tf is not None:
             [imgcur, imgpre] = self.img_tf([imgcur, imgpre])
-            try:
-                #[imgcur,imgpre] = self.img_tf([imgcur,imgpre])
-                pass
-            except:
-                print(self.id(self.keys[index]))
             imgcur = F.to_tensor(imgcur)
             try:
                 imgpre = F.to_tensor(imgpre)
