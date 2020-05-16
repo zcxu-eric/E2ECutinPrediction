@@ -265,5 +265,5 @@ class VOCTrainingEngine(engine.Engine):
         if len(imgs) == 0:
             return None, None
         cropped_imgs = [[tf.ToTensor()(one[0]),tf.ToTensor()(one[1])] for one in imgs] #cropped imgs from one image for cutin
-        cropped_imgs, labels = self.cutin_balance(cropped_imgs, labelseq)
-        return cropped_imgs, labels
+        #cropped_imgs, labels = self.cutin_balance(cropped_imgs, labelseq)
+        return cropped_imgs, torch.tensor(labelseq).cuda()
