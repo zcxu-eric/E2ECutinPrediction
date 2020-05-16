@@ -110,7 +110,8 @@ class VOCTrainingEngine(engine.Engine):
     def process_batch(self, data):
         loss = 0
         cropped_imgs, labels = self.cropped_img_generatir(data)
-
+        if cropped_imgs == None:
+            return
         for id, pair in enumerate(cropped_imgs):
             # to(device)
             if self.cuda:
@@ -188,7 +189,7 @@ class VOCTrainingEngine(engine.Engine):
             return GT, L[0]
 
     def cutin_balance(self, cropped_imgs, labels):
-        if len(cropped_imgs) == 0:
+        if len(cropped_imgs) == 0 or labels.shape==0:
             return
         else:
             nocut = []
@@ -204,7 +205,7 @@ class VOCTrainingEngine(engine.Engine):
                 try:
                     cut.extend(sample(self.cutin_pool,len(nocut)-len(cut)))
                 except:
-                    log.INFO(f'sample{len(nocut)-len(cut)} out of range{len(self.cutin_pool)}!')
+                    log.INFO(f'sample {len(nocut)-len(cut)} out of range {len(self.cutin_pool)}!')
             else:
                 cut.extend(sample(self.cutin_pool, len(self.cutin_pool)))
             imgs = nocut+cut
@@ -214,7 +215,10 @@ class VOCTrainingEngine(engine.Engine):
             ind = list(range(len(imgs)))
             com = list(zip(ind,imgs))
             shuffle(com)
-            ind, imgs = zip(*com)
+            try:
+                ind, imgs = zip(*com)
+            except:
+                return None, None
             imgs = list(imgs)
             label_new = label[list(ind)]
             label_t = torch.from_numpy(label_new).cuda()
@@ -248,6 +252,8 @@ class VOCTrainingEngine(engine.Engine):
                     imgs.append([tmp1,tmp2])
 
         cropped_imgs = [[tf.ToTensor()(one[0]),tf.ToTensor()(one[1])] for one in imgs] #cropped imgs from one image for cutin
-        cropped_imgs, labels = self.cutin_balance(cropped_imgs, labels)
-
-        return cropped_imgs, labels
+        try:
+            cropped_imgs, labels = self.cutin_balance(cropped_imgs, labels)
+            return cropped_imgs, labels
+        except:
+            return None, None
