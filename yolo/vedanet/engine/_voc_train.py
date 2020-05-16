@@ -243,8 +243,8 @@ class VOCTrainingEngine(engine.Engine):
                     tmp1 = tmp1.resize((160,160),Image.BILINEAR)
                     tmp2 = t2.crop((box[0], box[1], box[2], box[3]))
                     tmp2 = tmp2.resize((160, 160), Image.BILINEAR)
-                    tmp1.show()
-                    tmp2.show()
+                    #tmp1.show()
+                    #tmp2.show()
                     imgs.append([tmp1,tmp2])
                     labelseq.append(imglabels[ii])
         if len(imgs) == 0:
