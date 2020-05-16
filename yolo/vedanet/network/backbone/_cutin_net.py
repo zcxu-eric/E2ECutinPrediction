@@ -41,13 +41,18 @@ class CutinNet(nn.Module):
                 ('Stage6', bsnv2.Stage(out_planes[1], out_planes[2], groups, num_blocks[2])),
                 # the following is extra
             ]),
+
+            OrderedDict([
+                ('Stage7', bsnv2.Stage(out_planes[2], out_planes[3], groups, num_blocks[3])),
+                # the following is extra
+            ]),
         ]
 
         self.pre_layers = nn.ModuleList([nn.Sequential(layer_dict_pre) for layer_dict_pre in layers_list_pre])
         self.suc_layers = nn.ModuleList([nn.Sequential(layer_dict_suc) for layer_dict_suc in layers_list_suc])
 
-        self.dense_1 = nn.Linear(1*464*5*5,2000)
-        self.dense_2 = nn.Linear(2000, 2)
+        self.dense_1 = nn.Linear(1*928*3*3, 200)
+        self.dense_2 = nn.Linear(200, 2)
 
 
     def forward(self, x, target):
@@ -65,7 +70,8 @@ class CutinNet(nn.Module):
         stage4 = torch.cat((stage4_1, stage4_2), dim=1)
         stage5 = self.suc_layers[0](stage4)
         stage6 = self.suc_layers[1](stage5) #1,464,5,5
-        d1 = self.dense_1(torch.flatten(stage6))
+        stage7 = self.suc_layers[2](stage6)
+        d1 = self.dense_1(torch.flatten(stage7))
         d2 = self.dense_2(d1)
         output = d2.unsqueeze(dim = 0)
         # ROI Align
