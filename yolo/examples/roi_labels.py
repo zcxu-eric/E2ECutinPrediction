@@ -13,7 +13,7 @@ sys.path.insert(0, '.')
 import brambox.boxes as bbb
 
 DEBUG = True        # Enable some debug prints with extra information
-ROOT = '/media/eric/Daten/KITTI/VOCdevkit'       # Root folder where the VOCdevkit is located
+ROOT = '/media/eric/XZC/KITTI/VOCdevkit'       # Root folder where the VOCdevkit is located
 '''
 TRAINSET = [
     ('2012', 'train'),
@@ -38,13 +38,34 @@ def identify(xml_file):
     return path
 
 if __name__ == '__main__':
+    print('Getting training annotation filenames')
+    train = []
+    for (year, img_set) in TRAINSET:
+        with open(f'{ROOT}/VOC{year}/ImageSets/Main/{img_set}.txt', 'r') as f:
+            ids = f.read().strip().split()
+        train += [f'{ROOT}/VOC{year}/Annotations/{xml_id}.xml' for xml_id in ids]
+
+    if DEBUG:
+        print(f'\t{len(train)} xml files')
+
+    print('Parsing training annotation files')
+    train_annos = bbb.parse('anno_pascalvoc', train, identify)
+    # Remove difficult for training
+    for k,annos in train_annos.items():
+        for i in range(len(annos)-1, -1, -1):
+            if annos[i].difficult:
+                del annos[i]
+
+    print('Generating training annotation file')
+    bbb.generate('anno_pickle', train_annos, f'{ROOT}/onedet_cache/train.pkl')
+
 
     print('Getting testing annotation filenames')
     test = []
     for (year, img_set) in TESTSET:
         with open(f'{ROOT}/VOC{year}/ImageSets/Main/{img_set}.txt', 'r') as f:
             ids = f.read().strip().split()
-        test += [f'{ROOT}/VOC{year}/ROI_Annotations/{xml_id}.xml' for xml_id in ids]
+        test += [f'{ROOT}/VOC{year}/Annotations/{xml_id}.xml' for xml_id in ids]
 
     if DEBUG:
         print(f'\t{len(test)} xml files')

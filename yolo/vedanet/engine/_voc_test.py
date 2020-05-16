@@ -86,9 +86,12 @@ def VOCTest(hyper_params):
     confusion_matrix = np.zeros(shape=(2,2))
     for idx, data in enumerate(loader):
         if (idx + 1) % 20 == 0: 
-            log.info('%d/%d' % (idx + 1, len(loader)))
+            log.info('image batches: %d/%d' % (idx + 1, len(loader)))
         cropped_imgs, labels = cropped_img_generatir(data)
-        total += len(labels)
+        try:
+            total += len(labels)
+        except:
+            continue
         for id, pair in enumerate(cropped_imgs):
             # to(device)
             if use_cuda:
@@ -109,7 +112,7 @@ def VOCTest(hyper_params):
                     correct += 1
     cmd = 'cp ' + hyper_params.weights + ' ' + 'weights/' + 'cutinprednet_%.3f_%.3f.pth' % (correct/total,cutin_correct/cutin_total)
     os.system(cmd)
-    print(float(correct/total),cutin_correct/cutin_total)
+    print(total,cutin_total)
     print(confusion_matrix)
 
         #key_val = len(anno)

@@ -5,7 +5,7 @@ log_name: "logs"
 
 labels: ["car","truck","person","bus"]
 
-data_root_dir: "/media/eric/Daten/KITTI/VOCdevkit/onedet_cache"
+data_root_dir: "/media/eric/XZC/KITTI/VOCdevkit/onedet_cache"
 
 train:
     dataset: "train"

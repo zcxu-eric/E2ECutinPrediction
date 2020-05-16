@@ -13,13 +13,30 @@ name_list = ["bus","truck","person","tv"]
 cutin_list = ["cutin"]
 #name_list = ["car","Van","person","Truck","Cyclist"]
 labels = []
-filepath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/Annotations/'
-#filepath = './'
+filepath = '/home/eric/KITTI/VOCdevkit/VOC2012/Annotations.origin/'
+
 rois = {'1':[[620,610],[835,610],[525,800],[1045,700]],
-        '2':[[620,610],[835,610],[525,800],[1045,700]],
-        '4':[[310,580],[490,580],[212,740],[680,770]],}
+        '2':[[424,568],[600,562],[223,778],[803,793]],
+        '3':[[492,640],[660,640],[336,770],[880,787]],
+        '4':[[310,580],[490,580],[212,740],[680,770]],
+        '5':[[506,470],[690,470],[336,770],[1060,690]],
+        '6':[[464,413],[757,413],[218,740],[1040,700]],
+        '7':[[530,406],[618,406],[214,676],[947,674]],
+        '8':[[470,544],[805,540],[221,780],[945,755]],
+        '9':[[383,493],[565,482],[110,733],[945,757]],
+        '10':[[590,400],[744,400],[436,800],[1056,700]],}
+
 expand_ratio = {'1':-0.0006,
-        '4':0.0005,}
+                '2':-0.002,
+                '3':-0.001,
+                '4':0.0005,
+                '5':-0.0015,
+                '6':-0.00037,
+                '7':-0.00278,
+                '8':-0.0148,
+                '9':-0.0009,
+                '10':-0.0008}
+
 cutdis = []
 nocutdis = []
 confusion = np.zeros((2, 2))
@@ -100,7 +117,6 @@ def roi_checker(xml_path):
         ymax = int(box.find('ymax').text)
 
         if ymax <= roi[0][1]:
-            root.remove(_ob)
             pred = 0
         elif ((xmin >= roi[2][0] and xmin <= roi[3][0]) or (xmax >= roi[2][0] and xmax <= roi[3][0])):
             pred = 1
@@ -108,18 +124,20 @@ def roi_checker(xml_path):
             pred = 1
         else:
             pred = 0
-        confusion[int(_ob.find('cutin').text),pred] += 1
+        if not pred:
+            root.remove(_ob)
+        try:
+            confusion[int(_ob.find('cutin').text),pred] += 1
+        except:
+            print(xml_path)
 
             #dis = min(getDis(center[0],center[1],roi[0][0],roi[0][1],roi[2][0],roi[2][1]),getDis(center[0],center[1],roi[1][0],roi[1][1],roi[3][0],roi[3][1]))
 
 
     a = 1
 
-
-
-
-    #prettyXml(root, '\t', '\n')
-    #Tree.write(xml_path)
+    prettyXml(root, '\t', '\n')
+    Tree.write(xml_path)
 
     end = time.time()
     print('\rProcessing ' + folder + '/' + fname + ' time consuming: %s s' % str(end - start), end=" ")
@@ -171,13 +189,9 @@ def xml_projector(xml_path):
         
 
 if __name__ == '__main__':
-    #xmls = xml_files('./')
-    #xml_projector(xmls[0])
-    #for i in range(1,11):
-    xmls = xml_files(filepath+str(1))
-    list(map(roi_checker,xmls))
-    #print(f'cutin mean:{np.mean(np.array(cutdis))} cutin std:{np.std(np.array(cutdis),ddof=1)}')
-    #print(f'no cutin mean:{np.mean(np.array(nocutdis))} cutin std:{np.std(np.array(nocutdis), ddof=1)}')
+    for i in range(1,11):
+        xmls = xml_files(filepath+str(i))
+        list(map(roi_checker,xmls))
     print('\n',confusion)
     #pool = Pool(4)
     #pool.map(roi_checker,xmls)
