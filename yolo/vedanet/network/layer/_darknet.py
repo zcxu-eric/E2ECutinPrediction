@@ -583,7 +583,8 @@ class Conv2dBatchReLU(nn.Module):
         self.layers = nn.Sequential(
             nn.Conv2d(self.in_channels, self.out_channels, self.kernel_size, self.stride, self.padding, bias=False),
             nn.BatchNorm2d(self.out_channels),
-            nn.ReLU(inplace=True)
+            #nn.ReLU(inplace=True)
+            nn.Sigmoid()
         )
 
     def __repr__(self):

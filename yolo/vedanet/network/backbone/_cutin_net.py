@@ -62,7 +62,6 @@ class CutinNet(nn.Module):
         out = out.view(out.size(1),-1)
 
         out = self.dense(out)
-        aa = 1
         # ROI Align
         loss = nn.CrossEntropyLoss()(out, target.long())
         if self.train_flag == 2:
