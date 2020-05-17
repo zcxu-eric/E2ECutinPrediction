@@ -261,6 +261,7 @@ class VOCTrainingEngine(engine.Engine):
                     #tmp2.show()
                     imgs.append([tmp1,tmp2])
                     labelseq.append(imglabels[ii])
+                    a =1
         if len(imgs) == 0:
             return None, None
         cropped_imgs = [[tf.ToTensor()(one[0]),tf.ToTensor()(one[1])] for one in imgs] #cropped imgs from one image for cutin

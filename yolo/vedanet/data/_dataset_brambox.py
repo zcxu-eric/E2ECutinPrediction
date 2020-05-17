@@ -77,7 +77,7 @@ class BramboxDataset(Dataset):
         imgcur = Image.open(self.id(self.keys[index]))
         base, filename = os.path.split((self.keys[index]))
         try:
-            prename = self.id(os.path.join(base,str(int(filename[:-4])-3).zfill(4)+'.jpg'))
+            prename = self.id(os.path.join(base,str(int(filename[:-4])-20).zfill(4)+'.jpg'))
             imgpre = Image.open(prename)
         except:
             imgpre = Image.open(self.id(self.keys[index]))
