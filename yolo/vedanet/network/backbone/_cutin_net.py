@@ -43,7 +43,7 @@ class CutinNet(nn.Module):
         ]
 
         self.layers = nn.ModuleList([nn.Sequential(layer_dict) for layer_dict in layers_list])
-        self.lstm = nn.LSTM(input_size=11600,hidden_size=100)# input shape = (8,bs,feat)
+        self.lstm = nn.GRU(input_size=11600,hidden_size=100)# input shape = (8,bs,feat)
         self.dense = nn.Linear(800, 2)
 
 

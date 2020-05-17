@@ -35,10 +35,10 @@ class CustomDataset(vn_data.BramboxDataset):
         super(CustomDataset, self).__init__('anno_pickle', anno, network_size, labels, identify, img_tf, anno_tf)
 
     def __getitem__(self, index):
-        imgcur, imgpre, anno = super(CustomDataset, self).__getitem__(index)
+        IMG, anno = super(CustomDataset, self).__getitem__(index)
         for a in anno:
             a.ignore = a.difficult  # Mark difficult annotations as ignore for pr metric
-        return imgcur, imgpre, anno
+        return IMG, anno
 
 
 def VOCTest(hyper_params):
@@ -87,25 +87,28 @@ def VOCTest(hyper_params):
     for idx, data in enumerate(loader):
         if (idx + 1) % 20 == 0: 
             log.info('image batches: %d/%d' % (idx + 1, len(loader)))
+
         cropped_imgs, labels = cropped_img_generatir(data)
-        try:
-            total += len(labels)
-        except:
-            continue
-        newlabels = labels.view(-1, 1)
         if cropped_imgs == None or len(cropped_imgs) == 0:
             continue
-        data1 = cropped_imgs[0][0].unsqueeze(dim=0)
-        data2 = cropped_imgs[0][1].unsqueeze(dim=0)
+        total += len(labels)
+
+        '''
+        newlabels = labels.view(-1, 1)
+        data1 = cropped_imgs[0][0].unsqueeze(dim = 0)
+        data2 = cropped_imgs[0][1].unsqueeze(dim = 0)
         if len(cropped_imgs) > 1:
-            for i in range(1, len(cropped_imgs)):
-                data1 = torch.cat((data1, cropped_imgs[i][0].unsqueeze(dim=0)), dim=0)
-                data2 = torch.cat((data2, cropped_imgs[i][1].unsqueeze(dim=0)), dim=0)
-        if torch.cuda.is_available():
-            data1 = data1.cuda()
-            data2 = data2.cuda()
+            for i in range(1,len(cropped_imgs)):
+                data1 = torch.cat((data1,cropped_imgs[i][0].unsqueeze(dim = 0)),dim=0)
+                data2 = torch.cat((data2,cropped_imgs[i][1].unsqueeze(dim = 0)),dim=0)
+        '''
+        for i, oneset in enumerate(cropped_imgs):
+            oneset = [one.unsqueeze(dim=0) for one in oneset]
+            oneset = torch.cat(oneset, dim=0)
+            if torch.cuda.is_available():
+                oneset = oneset.cuda()
         with torch.no_grad():
-            output = net([data1, data2], labels)
+            output = net(oneset, labels[i])
         score = F.softmax(output, dim=1).cpu().numpy()
         pred = np.argmax(score,axis=1)
         gt = labels.cpu().numpy()

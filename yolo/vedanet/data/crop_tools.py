@@ -38,35 +38,30 @@ def __build_targets_brambox(ground_truth, expand_ratio=0.0):
 
 
 def cropped_img_generatir(data):
-    img1, img2, target = data
+    IMGS, target = data
 
     boxes, labels = __build_targets_brambox(target)
     if len(boxes) == 0:
         return None, None
     imgs = []
+    tmp = []
     labelseq = []
     for id, one in enumerate(boxes):
         if not isinstance(one, str):
             bndboxes = one.tolist()
             imglabels = labels[id].tolist()
-
-            t1 = img1[id, :, :, :]
-            t2 = img2[id, :, :, :]
-            t1 = tf.ToPILImage()(t1)
-            t2 = tf.ToPILImage()(t2)
+            for i in range(8):
+                tmp.append(IMGS[0, i, :, :])
+            tmp = [tf.ToPILImage()(one) for one in tmp]
 
             for ii, box in enumerate(bndboxes):
-                tmp1 = t1.crop((box[0], box[1], box[2], box[3]))
-                tmp1 = tmp1.resize((160, 160), Image.BILINEAR)
-                tmp2 = t2.crop((box[0], box[1], box[2], box[3]))
-                tmp2 = tmp2.resize((160, 160), Image.BILINEAR)
-                imgs.append([tmp1, tmp2])
+                tmp = [one.crop((box[0], box[1], box[2], box[3])).resize((160, 160), Image.BILINEAR) for one in tmp]
+                # for one in tmp:
+                # one.show()
+                imgs.append(tmp)
                 labelseq.append(imglabels[ii])
     if len(imgs) == 0:
         return None, None
-    cropped_imgs = [[tf.ToTensor()(one[0]), tf.ToTensor()(one[1])] for one in
-                    imgs]  # cropped imgs from one image for cutin
-
-    l = torch.tensor(labelseq).cuda()
-
-    return cropped_imgs, l
+    cropped_imgs = [[tf.ToTensor()(one) for one in oneset] for oneset in imgs]  # cropped imgs from one image for cutin
+    # cropped_imgs, labels = self.cutin_balance(cropped_imgs, labelseq)
+    return cropped_imgs, torch.tensor(labelseq).cuda()

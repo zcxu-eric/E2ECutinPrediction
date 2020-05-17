@@ -140,9 +140,11 @@ class VOCTrainingEngine(engine.Engine):
     def train_batch(self):
         self.optimizer.step()
         self.optimizer.zero_grad()
-
-        log.info(f'{self.batch}/{self.max_batches} CUTIN Loss: {self.train_loss}')
-        print(f'{self.batch}/{self.max_batches} CUTIN Loss: {self.train_loss}')
+        try:
+            log.info(f'{self.batch}/{self.max_batches} CUTIN Loss: {self.train_loss}')
+            print(f'{self.batch}/{self.max_batches} CUTIN Loss: {self.train_loss}')
+        except:
+            pass
 
 
         if self.batch % self.backup_rate == 0 and self.lastbatch != self.batch:
@@ -252,8 +254,6 @@ class VOCTrainingEngine(engine.Engine):
                 for i in range(8):
                     tmp.append(IMGS[0,i,:,:])
                 tmp = [tf.ToPILImage()(one) for one in tmp]
-
-
 
                 for ii,box in enumerate(bndboxes):
                     tmp = [one.crop((box[0],box[1],box[2],box[3])).resize((160, 160), Image.BILINEAR) for one in tmp]
