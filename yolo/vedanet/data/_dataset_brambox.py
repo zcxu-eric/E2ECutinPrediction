@@ -9,7 +9,7 @@ import logging as log
 from PIL import Image
 import random
 import torchvision.transforms.functional as F
-
+import torch
 import brambox.boxes as bbb
 from ._dataloading import Dataset
 
@@ -74,29 +74,27 @@ class BramboxDataset(Dataset):
             raise IndexError(f'list index out of range [{index}/{len(self)-2}]')
 
         # Load
-        imgcur = Image.open(self.id(self.keys[index]))
+        IMGS = []
+        #imgcur = Image.open(self.id(self.keys[index]))
         base, filename = os.path.split((self.keys[index]))
-        try:
-            prename = self.id(os.path.join(base,str(int(filename[:-4])-3).zfill(4)+'.jpg'))
-            imgpre = Image.open(prename)
-        except:
-            imgpre = Image.open(self.id(self.keys[index]))
+
+        for i in range(8):
+            pt = self.id(os.path.join(base,str(int(filename[:-4])-i*5).zfill(4)+'.jpg'))
+            oneimg = Image.open(pt)
+            IMGS.append(oneimg)
+        IMGS.reverse()
 
         anno = copy.deepcopy(self.annos[self.keys[index]])
         random.shuffle(anno)
         # Transform
         if self.img_tf is not None:
-            [imgcur, imgpre] = self.img_tf([imgcur, imgpre])
-            imgcur = F.to_tensor(imgcur)
-            try:
-                imgpre = F.to_tensor(imgpre)
-            except:
-                print(self.id(self.keys[index]))
-            #imgcur.show()
-            #imgpre.show()
+            IMGS = self.img_tf(IMGS)
+        IMGS = [F.to_tensor(one).unsqueeze(dim = 0) for one in IMGS]
+            #for one in IMGS:
+            #    one.show()
+        IMG = torch.cat(IMGS,dim=0)
         if self.anno_tf is not None:
-            bb = len(anno)
             anno = self.anno_tf(anno)
             pass
 
-        return imgcur, imgpre, anno
+        return IMG, anno

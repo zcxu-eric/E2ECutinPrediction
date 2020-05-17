@@ -21,7 +21,7 @@ class CutinNet(nn.Module):
         groups = cfg['groups']
 
         # Network
-        layers_list_pre = [
+        layers_list = [
             # Sequence 0 : input = image tensor
             OrderedDict([
                 ('stage3/convbatchrelu', vn_layer.Conv2dBatchReLU(3, 24, 3, 2)),
@@ -35,50 +35,38 @@ class CutinNet(nn.Module):
             OrderedDict([
                 ('Stage5', bsnv2.Stage(out_planes[0], out_planes[1], groups, num_blocks[1])),
             ]),
-        ]
-        layers_list_suc = [
-            OrderedDict([
-                ('Stage6', bsnv2.Stage(2*out_planes[1], 2*out_planes[2], groups, num_blocks[2])),
-                # the following is extra
-            ]),
 
             OrderedDict([
-                ('Stage7', bsnv2.Stage(2*out_planes[2], 2*out_planes[3], groups, num_blocks[3])),
+                ('Stage6', bsnv2.Stage(out_planes[1], out_planes[2], groups, num_blocks[2])),
                 # the following is extra
             ]),
         ]
 
-        self.pre_layers = nn.ModuleList([nn.Sequential(layer_dict_pre) for layer_dict_pre in layers_list_pre])
-        self.suc_layers = nn.ModuleList([nn.Sequential(layer_dict_suc) for layer_dict_suc in layers_list_suc])
-
-        self.dense_1 = nn.Linear(928*2*3*3, 200)
-        self.dense_2 = nn.Linear(200, 2)
+        self.layers = nn.ModuleList([nn.Sequential(layer_dict) for layer_dict in layers_list])
+        self.lstm = nn.LSTM(input_size=11600,hidden_size=100)# input shape = (8,bs,feat)
+        self.dense = nn.Linear(800, 2)
 
 
     def forward(self, x, target):
 
         # x conaints consecutive frames
         # divide x into x1 and x2
-        x1 = x[0]
-        x2 = x[1]
-        self.seen += x1.size(0)
-        stem_1 = self.pre_layers[0](x1) #bs,24,128,128
-        stage4_1 = self.pre_layers[1](stem_1)
-        stage5_1 = self.pre_layers[2](stage4_1)
-        stem_2 = self.pre_layers[0](x2)
-        stage4_2 = self.pre_layers[1](stem_2)
-        stage5_2 = self.pre_layers[2](stage4_2)
-        stage5 = torch.cat((stage5_1, stage5_2), dim=1)#7,464,10,10
-        stage6 = self.suc_layers[0](stage5) #1,464,5,5
-        stage7 = self.suc_layers[1](stage6)
-        stage7 = stage7.view(stage7.size(0),-1)
-        d1 = self.dense_1(stage7)
-        d2 = self.dense_2(d1)
-        output = d2
+        target = target.unsqueeze(0)
+        self.seen += 1
+        stem = self.layers[0](x)
+        stage4 = self.layers[1](stem)
+        stage5 = self.layers[2](stage4)
+        stage6 = self.layers[3](stage5)
+        out = stage6.view(8,1,-1)
+        out,_ = self.lstm(out)
+        out = out.view(out.size(1),-1)
+
+        out = self.dense(out)
+        aa = 1
         # ROI Align
-        loss = nn.CrossEntropyLoss()(output, target.long())
+        loss = nn.CrossEntropyLoss()(out, target.long())
         if self.train_flag == 2:
-            return output
+            return out
         else:
             return loss
 

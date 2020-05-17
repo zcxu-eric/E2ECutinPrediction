@@ -14,7 +14,7 @@ __all__ = ['CutinPredNet']
 class CutinPredNet(CutinNet):
     def __init__(self, weights_file=None, train_flag=1, clear=False, test_args=None):
         super().__init__(cfg = {
-        'out_channels': (116, 232, 464, 928),
+        'out_channels': (116, 232, 464),
         'num_blocks': (3, 7, 3, 3),
         'groups': 2
     }, train_flag=train_flag)

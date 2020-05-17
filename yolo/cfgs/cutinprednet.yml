@@ -30,8 +30,8 @@ train:
     backup_rates: [1000, 200]
 
     input_shape: [608, 608]
-    batch_size: 8
-    mini_batch_size: 4
+    batch_size: 1
+    mini_batch_size: 1
     weights: ~
 
 test:
