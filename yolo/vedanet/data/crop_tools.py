@@ -60,14 +60,13 @@ def cropped_img_generatir(data):
                 tmp1 = tmp1.resize((160, 160), Image.BILINEAR)
                 tmp2 = t2.crop((box[0], box[1], box[2], box[3]))
                 tmp2 = tmp2.resize((160, 160), Image.BILINEAR)
-                tmp1.show()
-                tmp2.show()
                 imgs.append([tmp1, tmp2])
                 labelseq.append(imglabels[ii])
-                a = 1
     if len(imgs) == 0:
         return None, None
     cropped_imgs = [[tf.ToTensor()(one[0]), tf.ToTensor()(one[1])] for one in
                     imgs]  # cropped imgs from one image for cutin
 
-    return cropped_imgs, torch.tensor(labels).cuda()
+    l = torch.tensor(labelseq).cuda()
+
+    return cropped_imgs, l

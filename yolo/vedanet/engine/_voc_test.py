@@ -101,13 +101,26 @@ def VOCTest(hyper_params):
             for i in range(1, len(cropped_imgs)):
                 data1 = torch.cat((data1, cropped_imgs[i][0].unsqueeze(dim=0)), dim=0)
                 data2 = torch.cat((data2, cropped_imgs[i][1].unsqueeze(dim=0)), dim=0)
-        if self.cuda:
+        if torch.cuda.is_available():
             data1 = data1.cuda()
             data2 = data2.cuda()
+        with torch.no_grad():
+            output = net([data1, data2], labels)
+        score = F.softmax(output, dim=1).cpu().numpy()
+        pred = np.argmax(score,axis=1)
+        gt = labels.cpu().numpy()
+        gt = gt.astype(int)
+        for id, one in enumerate(zip(gt.tolist(),pred.tolist())):
+            confusion_matrix[one[0], one[1]] += 1
+            if one[0]:
+                cutin_total += 1
+                if one[1]:
+                    cutin_correct += 1
+            if (one[0]==one[1]):
+                correct += 1
         '''
         loss = self.network([data1, data2], labels)
-                with torch.no_grad():
-                    output = net([data1,data2], labels[id])
+                
                 score = F.softmax(output,dim=1).cpu().numpy()
                 pred = np.argmax(score)
                 gt = labels[id]

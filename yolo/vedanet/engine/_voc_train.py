@@ -62,7 +62,6 @@ class VOCTrainingEngine(engine.Engine):
         log.info('Net structure\n\n%s\n' % net)
         if self.cuda:
             net.cuda()
-
         log.debug('Creating optimizer')
         learning_rate = hyper_params.learning_rate
         momentum = hyper_params.momentum
@@ -113,9 +112,9 @@ class VOCTrainingEngine(engine.Engine):
     def process_batch(self, data):
         loss = 0
         cropped_imgs, labels = self.cropped_img_generatir(data)
-        newlabels = labels.view(-1,1)
         if cropped_imgs == None or len(cropped_imgs)==0:
             return
+        newlabels = labels.view(-1, 1)
         data1 = cropped_imgs[0][0].unsqueeze(dim = 0)
         data2 = cropped_imgs[0][1].unsqueeze(dim = 0)
         if len(cropped_imgs) > 1:
@@ -130,6 +129,8 @@ class VOCTrainingEngine(engine.Engine):
         loss.backward()
         try:
             self.train_loss = float(loss.item())
+            if self.train_loss > 0.6:
+                print(labels)
         except:
             pass
 
@@ -168,7 +169,7 @@ class VOCTrainingEngine(engine.Engine):
         else:
             return False
 
-    def __build_targets_brambox(self, ground_truth, expand_ratio = 0.0):
+    def __build_targets_brambox(self, ground_truth, expand_ratio = 0.2):
         """ Compare prediction boxes and ground truths, convert ground truths to network output tensors """
         # Parameters
         nB = len(ground_truth)
