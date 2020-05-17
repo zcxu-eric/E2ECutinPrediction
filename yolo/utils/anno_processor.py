@@ -13,8 +13,9 @@ name_list = ["bus","truck","person","tv"]
 cutin_list = ["cutin"]
 #name_list = ["car","Van","person","Truck","Cyclist"]
 labels = []
-filepath = '/home/eric/KITTI/VOCdevkit/VOC2012/Annotations.origin/'
-
+filepath = '/home/eric/KITTI/VOCdevkit/VOC2012/Annotations.balance/'
+cutin_total = 0
+nocutin_total = 0
 rois = {'1':[[620,610],[835,610],[525,800],[1045,700]],
         '2':[[424,568],[600,562],[223,778],[803,793]],
         '3':[[492,640],[660,640],[336,770],[880,787]],
@@ -184,15 +185,51 @@ def xml_projector(xml_path):
     
     end = time.time()
     print('\rProcessing '+folder + '/' + fname+' time consuming: %s s'%str(end-start), end= " ")
-       
-            
+
+
+def cutin_balancer(xml_path):
+    cutin = []
+    nocutin = []
+    reserve = []
+    global cutin_total
+    start = time.time()
+    Tree = ET.parse(xml_path)
+    base, fname = os.path.split(xml_path)
+    base, folder = os.path.split(base)
+    root = Tree.getroot()
+    ob = root.findall('object')
+    for _ob in ob:
+        try:
+            label = _ob.find('cutin').text
+        except:
+            print(xml_path)
+        label = _ob.find('cutin').text
+        if label == '1':
+            cutin.append(_ob)
+        else:
+            nocutin.append(_ob)
+    if len(cutin)!=0:
+        cutin_total += 1
+        try:
+            reserve = sample(nocutin,1)
+        except:
+            pass
+    rm = list(set(nocutin)-set(reserve))
+    for one in rm:
+        root.remove(one)
+
+    prettyXml(root, '\t', '\n')
+    Tree.write(xml_path)
+
+    end = time.time()
+    print('\rProcessing ' + folder + '/' + fname + ' time consuming: %s s' % str(end - start), end=" ")
         
 
 if __name__ == '__main__':
     for i in range(1,11):
         xmls = xml_files(filepath+str(i))
-        list(map(roi_checker,xmls))
-    print('\n',confusion)
+        list(map(cutin_balancer,xmls))
+    print('\n',cutin_total)
     #pool = Pool(4)
     #pool.map(roi_checker,xmls)
     #pool.close()
