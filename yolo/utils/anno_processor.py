@@ -13,7 +13,7 @@ name_list = ["bus","truck","person","tv"]
 cutin_list = ["cutin"]
 #name_list = ["car","Van","person","Truck","Cyclist"]
 labels = []
-filepath = '/home/eric/KITTI/VOCdevkit/VOC2012/Annotations.origin/'
+filepath = '/home/eric/KITTI/VOCdevkit/VOC2012/C_Annotations/'
 
 rois = {'1':[[620,610],[835,610],[525,800],[1045,700]],
         '2':[[424,568],[600,562],[223,778],[803,793]],
@@ -40,6 +40,7 @@ expand_ratio = {'1':-0.0006,
 cutdis = []
 nocutdis = []
 confusion = np.zeros((2, 2))
+count = 0
 ####################################
 #      P1-------------- P2
 #     /                  \
@@ -143,6 +144,7 @@ def roi_checker(xml_path):
     print('\rProcessing ' + folder + '/' + fname + ' time consuming: %s s' % str(end - start), end=" ")
 
 def xml_projector(xml_path):
+    global count
     start = time.time()
     Tree = ET.parse(xml_path)
     base, fname = os.path.split(xml_path)
@@ -164,7 +166,7 @@ def xml_projector(xml_path):
             if _ob.text == "VOC2012":
                 _ob.text = "10"
         '''
-
+        count += 1
         #if _ob.text == str(one[1]):
         name = _ob.find('name').text
         
@@ -179,8 +181,8 @@ def xml_projector(xml_path):
             cutin = SubElement(_ob,"cutin")
             cutin.text = "1"
 
-    prettyXml(root, '\t', '\n')
-    Tree.write(xml_path)
+    #prettyXml(root, '\t', '\n')
+    #Tree.write(xml_path)
     
     end = time.time()
     print('\rProcessing '+folder + '/' + fname+' time consuming: %s s'%str(end-start), end= " ")
@@ -191,8 +193,8 @@ def xml_projector(xml_path):
 if __name__ == '__main__':
     for i in range(1,11):
         xmls = xml_files(filepath+str(i))
-        list(map(roi_checker,xmls))
-    print('\n',confusion)
+        list(map(xml_projector,xmls))
+    print('\n',count)
     #pool = Pool(4)
     #pool.map(roi_checker,xmls)
     #pool.close()
