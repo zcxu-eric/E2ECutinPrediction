@@ -31,19 +31,19 @@ class CutinNet(nn.Module):
             OrderedDict([
                 ('Stage4', bsnv2.Stage(24, out_planes[0], groups, num_blocks[0])),
             ]),
+
+            OrderedDict([
+                ('Stage5', bsnv2.Stage(out_planes[0], out_planes[1], groups, num_blocks[1])),
+            ]),
         ]
         layers_list_suc = [
             OrderedDict([
-                ('Stage5', bsnv2.Stage(2*out_planes[0], out_planes[1], groups, num_blocks[1])),
-            ]),
-
-            OrderedDict([
-                ('Stage6', bsnv2.Stage(out_planes[1], out_planes[2], groups, num_blocks[2])),
+                ('Stage6', bsnv2.Stage(2*out_planes[1], 2*out_planes[2], groups, num_blocks[2])),
                 # the following is extra
             ]),
 
             OrderedDict([
-                ('Stage7', bsnv2.Stage(out_planes[2], out_planes[3], groups, num_blocks[3])),
+                ('Stage7', bsnv2.Stage(2*out_planes[2], 2*out_planes[3], groups, num_blocks[3])),
                 # the following is extra
             ]),
         ]
@@ -51,7 +51,7 @@ class CutinNet(nn.Module):
         self.pre_layers = nn.ModuleList([nn.Sequential(layer_dict_pre) for layer_dict_pre in layers_list_pre])
         self.suc_layers = nn.ModuleList([nn.Sequential(layer_dict_suc) for layer_dict_suc in layers_list_suc])
 
-        self.dense_1 = nn.Linear(928*3*3, 200)
+        self.dense_1 = nn.Linear(928*2*3*3, 200)
         self.dense_2 = nn.Linear(200, 2)
 
 
@@ -64,12 +64,13 @@ class CutinNet(nn.Module):
         self.seen += x1.size(0)
         stem_1 = self.pre_layers[0](x1) #bs,24,128,128
         stage4_1 = self.pre_layers[1](stem_1)
+        stage5_1 = self.pre_layers[2](stage4_1)
         stem_2 = self.pre_layers[0](x2)
         stage4_2 = self.pre_layers[1](stem_2)
-        stage4 = torch.cat((stage4_1, stage4_2), dim=1)
-        stage5 = self.suc_layers[0](stage4)
-        stage6 = self.suc_layers[1](stage5) #1,464,5,5
-        stage7 = self.suc_layers[2](stage6)
+        stage5_2 = self.pre_layers[2](stage4_2)
+        stage5 = torch.cat((stage5_1, stage5_2), dim=1)#7,464,10,10
+        stage6 = self.suc_layers[0](stage5) #1,464,5,5
+        stage7 = self.suc_layers[1](stage6)
         stage7 = stage7.view(stage7.size(0),-1)
         d1 = self.dense_1(stage7)
         d2 = self.dense_2(d1)

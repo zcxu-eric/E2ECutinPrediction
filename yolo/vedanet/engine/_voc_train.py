@@ -129,8 +129,6 @@ class VOCTrainingEngine(engine.Engine):
         loss.backward()
         try:
             self.train_loss = float(loss.item())
-            if self.train_loss > 0.6:
-                print(labels)
         except:
             pass
 
