@@ -13,7 +13,7 @@ name_list = ["bus","truck","person","tv"]
 cutin_list = ["cutin"]
 #name_list = ["car","Van","person","Truck","Cyclist"]
 labels = []
-filepath = '/home/eric/KITTI/VOCdevkit/VOC2012/Annotations.balance/'
+filepath = '/media/eric/XZC/KITTI/VOCdevkit/VOC2012/Annotations.origin/'
 cutin_total = 0
 nocutin_total = 0
 rois = {'1':[[620,610],[835,610],[525,800],[1045,700]],
@@ -228,7 +228,7 @@ def cutin_balancer(xml_path):
 if __name__ == '__main__':
     for i in range(1,11):
         xmls = xml_files(filepath+str(i))
-        list(map(cutin_balancer,xmls))
+        list(map(xml_projector,xmls))
     print('\n',cutin_total)
     #pool = Pool(4)
     #pool.map(roi_checker,xmls)

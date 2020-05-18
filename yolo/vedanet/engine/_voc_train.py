@@ -111,21 +111,15 @@ class VOCTrainingEngine(engine.Engine):
 
     def process_batch(self, data):
         loss = 0
-        cropped_imgs, labels = self.cropped_img_generatir(data)
-        if cropped_imgs == None or len(cropped_imgs)==0:
+        data1, data2, boxes, labels = self.cropped_img_generatir(data)
+        if not boxes:
             return
         newlabels = labels.view(-1, 1)
-        data1 = cropped_imgs[0][0].unsqueeze(dim = 0)
-        data2 = cropped_imgs[0][1].unsqueeze(dim = 0)
-        if len(cropped_imgs) > 1:
-            for i in range(1,len(cropped_imgs)):
-                data1 = torch.cat((data1,cropped_imgs[i][0].unsqueeze(dim = 0)),dim=0)
-                data2 = torch.cat((data2,cropped_imgs[i][1].unsqueeze(dim = 0)),dim=0)
         if self.cuda:
             data1 = data1.cuda()
             data2 = data2.cuda()
 
-        loss = self.network([data1,data2], labels)
+        loss = self.network([data1,data2], boxes, labels)
         loss.backward()
         try:
             self.train_loss = float(loss.item())
@@ -166,6 +160,42 @@ class VOCTrainingEngine(engine.Engine):
             return True
         else:
             return False
+
+
+    def cropped_img_generatir(self, data):
+
+        img1, img2, target = data
+
+        #visual
+        t1 = tf.ToPILImage()(img1[0,:,:,:])
+        t2 = tf.ToPILImage()(img2[0,:,:,:])
+        #t1.show()
+        #t2.show()
+
+        boxes, labels = self.__build_targets_brambox(target)
+        if len(boxes) == 0:
+            return None, None
+        boxseq = []
+        labelseq = []
+        for id, one in enumerate(boxes):
+            if not isinstance(one, str):
+                bndboxes = one.tolist()
+                imglabels = labels[id].tolist()
+                '''
+                t1 = img1[id,:,:,:]
+                t2 = img2[id,:,:,:]
+                
+                '''
+
+                for ii,box in enumerate(bndboxes):
+                    boxseq.append(torch.tensor(box).cuda())
+                    labelseq.append(imglabels[ii])
+                    a =1
+        if len(boxseq) == 0:
+            return img1, img2,None, None
+
+        return img1, img2, boxseq, torch.tensor(labelseq).cuda()
+
 
     def __build_targets_brambox(self, ground_truth, expand_ratio = 0.2):
         """ Compare prediction boxes and ground truths, convert ground truths to network output tensors """
@@ -230,40 +260,3 @@ class VOCTrainingEngine(engine.Engine):
 
 
         return imgs, label_t
-
-
-    def cropped_img_generatir(self, data):
-
-        img1, img2, target = data
-
-        boxes, labels = self.__build_targets_brambox(target)
-        if len(boxes) == 0:
-            return None, None
-        imgs = []
-        labelseq = []
-        for id, one in enumerate(boxes):
-            if not isinstance(one, str):
-                bndboxes = one.tolist()
-                imglabels = labels[id].tolist()
-
-                t1 = img1[id,:,:,:]
-                t2 = img2[id,:,:,:]
-                t1 = tf.ToPILImage()(t1)
-                t2 = tf.ToPILImage()(t2)
-
-
-                for ii,box in enumerate(bndboxes):
-                    tmp1 = t1.crop((box[0],box[1],box[2],box[3]))
-                    tmp1 = tmp1.resize((160,160),Image.BILINEAR)
-                    tmp2 = t2.crop((box[0], box[1], box[2], box[3]))
-                    tmp2 = tmp2.resize((160, 160), Image.BILINEAR)
-                    #tmp1.show()
-                    #tmp2.show()
-                    imgs.append([tmp1,tmp2])
-                    labelseq.append(imglabels[ii])
-                    a =1
-        if len(imgs) == 0:
-            return None, None
-        cropped_imgs = [[tf.ToTensor()(one[0]),tf.ToTensor()(one[1])] for one in imgs] #cropped imgs from one image for cutin
-        #cropped_imgs, labels = self.cutin_balance(cropped_imgs, labelseq)
-        return cropped_imgs, torch.tensor(labelseq).cuda()

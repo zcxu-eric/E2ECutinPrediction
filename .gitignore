@@ -5,7 +5,7 @@ __pycache__/
 *.pth
 # C extensions
 *.so
-
+#RoIAlign/
 # Distribution / packaging
 .Python
 build/
