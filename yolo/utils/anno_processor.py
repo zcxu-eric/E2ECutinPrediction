@@ -8,24 +8,43 @@ from xml.etree.ElementTree import Element, SubElement, ElementTree
 from multiprocessing import Pool
 import time
 import math
+from torchvision import models,transforms
+import torch.nn as nn
+import torch
+from PIL import Image
+import torchvision
+import matplotlib.pyplot as plt
+class_names = ['front', 'left', 'right', 'tail']
+
+model_ft = models.shufflenet_v2_x1_0(pretrained=False)
+num_ftrs = model_ft.fc.in_features
+model_ft.fc = nn.Linear(num_ftrs, 4)
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+model_ft = model_ft.to(device)
+model_ft.load_state_dict(torch.load('/home/eric/QZYGesture/checkpoints/car_best.pth'))
+model_ft.eval()
 
 name_list = ["bus","truck","person","tv"]
 cutin_list = ["cutin"]
 #name_list = ["car","Van","person","Truck","Cyclist"]
 labels = []
-filepath = '/media/eric/XZC/KITTI/VOCdevkit/VOC2012/Annotations.origin/'
+filepath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/Annotations.origin2/'
+imgpath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/JPEGImages'
+crop_dir = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/CropImages'
 cutin_total = 0
 nocutin_total = 0
-rois = {'1':[[620,610],[835,610],[525,800],[1045,700]],
-        '2':[[424,568],[600,562],[223,778],[803,793]],
-        '3':[[492,640],[660,640],[336,770],[880,787]],
-        '4':[[310,580],[490,580],[212,740],[680,770]],
-        '5':[[506,470],[690,470],[336,770],[1060,690]],
-        '6':[[464,413],[757,413],[218,740],[1040,700]],
-        '7':[[530,406],[618,406],[214,676],[947,674]],
-        '8':[[470,544],[805,540],[221,780],[945,755]],
-        '9':[[383,493],[565,482],[110,733],[945,757]],
-        '10':[[590,400],[744,400],[436,800],[1056,700]],}
+countcut = 0
+countnocut = 0
+rois = {'1':[[620,610],[835,610],[525,800],[1045,800]],
+        '2':[[424,568],[600,568],[223,780],[803,780]],
+        '3':[[492,640],[660,640],[336,770],[880,770]],
+        '4':[[310,580],[490,580],[212,770],[680,770]],
+        '5':[[506,470],[690,470],[336,770],[1060,770]],
+        '6':[[464,413],[757,413],[218,770],[1040,770]],
+        '7':[[530,406],[618,406],[214,670],[947,670]],
+        '8':[[470,540],[805,540],[221,780],[945,780]],
+        '9':[[383,482],[565,482],[110,750],[945,750]],
+        '10':[[590,400],[744,400],[436,800],[1056,800]],}
 
 expand_ratio = {'1':-0.0006,
                 '2':-0.002,
@@ -92,6 +111,180 @@ def isThrough(point1, point2, linep1,linep2):
     out2 = a * pointX2 + b * pointY2 + c
     return out1*out2<0
 
+def iou(rec1,rec2):
+    """
+        computing IoU
+         rec1: (y0, x0, y1, x1), which reflects
+                (top, left, bottom, right)
+        rec2: (y0, x0, y1, x1)
+        scala value of IoU
+        """
+    # computing area of each rectangles
+    S_rec1 = (rec1[2] - rec1[0]) * (rec1[3] - rec1[1])
+    S_rec2 = (rec2[2] - rec2[0]) * (rec2[3] - rec2[1])
+
+    # computing the sum_area
+    sum_area = S_rec1 + S_rec2
+
+    # find the each edge of intersect rectangle
+    left_line = max(rec1[1], rec2[1])
+    right_line = min(rec1[3], rec2[3])
+    top_line = max(rec1[0], rec2[0])
+    bottom_line = min(rec1[2], rec2[2])
+
+    # judge if there is an intersect
+    if left_line >= right_line or top_line >= bottom_line:
+        return 0
+    else:
+        intersect = (right_line - left_line) * (bottom_line - top_line)
+        return (intersect / (sum_area - intersect)) * 1.0
+def inter(rec1,rec2):
+    """
+        computing IoU
+         rec1: (y0, x0, y1, x1), which reflects
+                (top, left, bottom, right)
+        rec2: (y0, x0, y1, x1)
+        scala value of IoU
+        """
+    # computing area of each rectangles
+    S_rec1 = (rec1[2] - rec1[0]) * (rec1[3] - rec1[1])
+    S_rec2 = (rec2[2] - rec2[0]) * (rec2[3] - rec2[1])
+
+    # computing the sum_area
+    sum_area = S_rec1 + S_rec2
+
+    # find the each edge of intersect rectangle
+    left_line = max(rec1[1], rec2[1])
+    right_line = min(rec1[3], rec2[3])
+    top_line = max(rec1[0], rec2[0])
+    bottom_line = min(rec1[2], rec2[2])
+
+    # judge if there is an intersect
+    if left_line >= right_line or top_line >= bottom_line:
+        return 0
+    else:
+        intersect = (right_line - left_line) * (bottom_line - top_line)
+        return (intersect/S_rec1) * 1.0
+
+def roi_inter(box, folder):
+    pieceroi = []
+    count = 0
+    [p1, p2, p3, p4] = rois[folder]
+    yslide = 5
+    kr = (p4[0]-p2[0])/(p4[1]-p2[1])
+    kl = (p1[0]-p3[0])/(p3[1]-p1[1])
+    xslider = kr*yslide
+    xslidel = kl*yslide
+    ymin = p1[1] - yslide
+    xmin = p1[0]
+    ymax = ymin + yslide
+    xmax = p2[0]
+
+    _xmin = int(xmin - count * xslidel)
+    _xmax = int(xmax + count * xslider)
+    _ymin = ymin + count * yslide
+    _ymax = ymax + count * yslide
+
+    while _ymin < p3[1]:
+        pieceroi.append([_xmin,_ymin,_xmax,_ymax])
+        count += 1
+        _xmin = int(xmin - count * xslidel)
+        _xmax = int(xmax + count * xslider)
+        _ymin = ymin + count * yslide
+        _ymax = ymax + count * yslide
+    intersum = 0
+    for one in pieceroi:
+        intersum += inter(box,one)
+    return intersum
+
+def cutin_predictor(xml_path):
+    thres = 0.7
+    start = time.time()
+    global cutdis
+    global nocutdis
+
+    base, fname = os.path.split(xml_path)
+    _,folder = os.path.split(base)
+    pt = os.path.join(os.path.join(imgpath, folder), fname[:-4] + '.jpg')
+    IMG = cv2.imread(os.path.join(os.path.join(imgpath, folder), fname[:-4] + '.jpg'))
+    if int(fname[:-4])<2:
+        return
+    IMGboxes = []
+    GT = []
+    for i in range(2):
+        imgboxes = []
+        gt = []
+        Tree = ET.parse(os.path.join(base,str(int(fname[:-4])-i).zfill(4)+'.xml'))
+        root = Tree.getroot()
+        ob = root.findall('object')
+        for _ob in ob:
+            box = _ob.find('bndbox')
+            xmin = int(box.find('xmin').text)
+            xmax = int(box.find('xmax').text)
+            ymin = int(box.find('ymin').text)
+            ymax = int(box.find('ymax').text)
+            imgboxes.append([xmin,ymin,xmax,ymax])
+            gt.append(int(_ob.find('cutin').text))
+        if len(imgboxes) == 0:
+            IMGboxes.append('NULL')
+        else:
+            IMGboxes.append(imgboxes)
+        GT.append(gt)
+
+    imgboxes = IMGboxes[0]
+    gt = GT[0]
+    pred = np.zeros(shape=len(imgboxes))#pred for each objs in one img
+
+    for  obj, one in enumerate(imgboxes):
+        if isinstance(IMGboxes[1],str):
+            continue
+        ious = [iou(one, nextone) for nextone in IMGboxes[1]]
+        for _id, io in enumerate(ious):
+            if io >= thres:
+                ROI_inter_2 = roi_inter(one, folder) #current
+                ROI_inter_1 = roi_inter(IMGboxes[1][_id],folder) #pre
+                if ROI_inter_1 > 0.00 or ROI_inter_2 > 0.00:
+
+                    cropped = IMG[one[1]:one[3], one[0]:one[2]]
+                    try:
+                        img = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))  # opencv to PIL
+                    except:
+                        a = 1
+                    transform = transforms.Compose([
+                        transforms.Resize(256),
+                        transforms.CenterCrop(224),
+                        transforms.ToTensor(),
+                        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+                    ])
+                    img = transform(img)
+                    img = img.unsqueeze(0)
+                    img = img.to(device)
+                    with torch.no_grad():
+                        output = model_ft(img)
+                        _, pose = torch.max(output, 1)
+                        # print(class_names[preds])
+                        # out = torchvision.utils.make_grid(img)
+                        # imshow(out.cpu().data)
+                    if (pose == 2) or (pose == 1):
+                        pred[obj] = 1
+                break
+        confusion[int(gt[obj]), int(pred[obj])] += 1
+
+    end = time.time()
+    print('\rProcessing ' + folder + '/' + fname + ' time consuming: %s s' % str(end - start), end=" ")
+
+def imshow(inp, title=None):
+    """Imshow for Tensor."""
+    inp = inp.numpy().transpose((1, 2, 0))
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    inp = std * inp + mean
+    inp = np.clip(inp, 0, 1)
+    plt.imshow(inp)
+    if title is not None:
+        plt.title(title)
+    plt.pause(0.001)  # pause a bit so that plots are updated
+
 def roi_checker(xml_path):
     start = time.time()
     global cutdis
@@ -108,7 +301,8 @@ def roi_checker(xml_path):
     roi[1][0] = roi[1][0]*(1+expand_ratio[folder])
     roi[3][0] = roi[3][0]*(1+expand_ratio[folder])
     ob = root.findall('object')
-
+    pt = os.path.join(os.path.join(imgpath, folder), fname[:-4] + '.jpg')
+    IMG = cv2.imread(os.path.join(os.path.join(imgpath, folder), fname[:-4] + '.jpg'))
     for _ob in ob:
 
         box = _ob.find('bndbox')
@@ -116,12 +310,32 @@ def roi_checker(xml_path):
         xmax = int(box.find('xmax').text)
         ymin = int(box.find('ymin').text)
         ymax = int(box.find('ymax').text)
+        cropped = IMG[ymin:ymax,xmin:xmax]
+        try:
+            img = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))  # opencv to PIL
+        except:
+            a = 1
+        transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+        img = transform(img)
+        img = img.unsqueeze(0)
+        img = img.to(device)
 
+        with torch.no_grad():
+            output = model_ft(img)
+            _, pose = torch.max(output, 1)
+            #print(class_names[preds])
+            #out = torchvision.utils.make_grid(img)
+            #imshow(out.cpu().data)
         if ymax <= roi[0][1]:
             pred = 0
-        elif ((xmin >= roi[2][0] and xmin <= roi[3][0]) or (xmax >= roi[2][0] and xmax <= roi[3][0])):
+        elif ((xmin >= roi[2][0] and xmin <= roi[3][0]) or (xmax >= roi[2][0] and xmax <= roi[3][0])) and (pose == 2 or pose == 1):
             pred = 1
-        elif isThrough((xmin,ymin),(xmax,ymax),roi[0],roi[2]) or isThrough((xmin,ymax),(xmax,ymin),roi[1],roi[3]):
+        elif isThrough((xmin,ymin),(xmax,ymax),roi[0],roi[2]) or isThrough((xmin,ymax),(xmax,ymin),roi[1],roi[3]) and (pose == 2 or pose == 1):
             pred = 1
         else:
             pred = 0
@@ -138,7 +352,7 @@ def roi_checker(xml_path):
     a = 1
 
     prettyXml(root, '\t', '\n')
-    Tree.write(xml_path)
+    #Tree.write(xml_path)
 
     end = time.time()
     print('\rProcessing ' + folder + '/' + fname + ' time consuming: %s s' % str(end - start), end=" ")
@@ -168,7 +382,7 @@ def xml_projector(xml_path):
 
         #if _ob.text == str(one[1]):
         name = _ob.find('name').text
-        
+
         #if name in name_list:
         #    _ob.find('name').text = "car"
         
@@ -223,13 +437,83 @@ def cutin_balancer(xml_path):
 
     end = time.time()
     print('\rProcessing ' + folder + '/' + fname + ' time consuming: %s s' % str(end - start), end=" ")
-        
+
+
+def xml_reverser(xml_path):
+    start = time.time()
+    Tree = ET.parse(xml_path)
+    base, fname = os.path.split(xml_path)
+    base, folder = os.path.split(base)
+    root = Tree.getroot()
+    ob = root.findall('object')
+    for _ob in ob:
+
+
+        # if _ob.text == str(one[1]):
+        cl = _ob.find('cutin').text
+
+        # if name in name_list:
+        #    _ob.find('name').text = "car"
+
+        if cl == '1':
+            _ob.find('name').text = 'cutin'
+
+    prettyXml(root, '\t', '\n')
+    Tree.write(xml_path)
+
+    end = time.time()
+    print('\rProcessing ' + folder + '/' + fname + ' time consuming: %s s' % str(end - start), end=" ")
+
+
+def crop_imgs(xml_path):
+    start = time.time()
+    global countcut
+    global countnocut
+    Tree = ET.parse(xml_path)
+    base, fname = os.path.split(xml_path)
+    base, folder = os.path.split(base)
+    root = Tree.getroot()
+    folder = root.find('folder').text
+    roi = rois[folder]
+
+    roi[0][0] = roi[0][0]*(1-expand_ratio[folder])
+    roi[2][0] = roi[2][0]*(1-expand_ratio[folder])
+    roi[1][0] = roi[1][0]*(1+expand_ratio[folder])
+    roi[3][0] = roi[3][0]*(1+expand_ratio[folder])
+    ob = root.findall('object')
+    pt = os.path.join(os.path.join(imgpath,folder),fname[:-4]+'.jpg')
+    img = cv2.imread(os.path.join(os.path.join(imgpath,folder),fname[:-4]+'.jpg'))
+
+    for _ob in ob:
+
+        box = _ob.find('bndbox')
+        xmin = int(box.find('xmin').text)
+        xmax = int(box.find('xmax').text)
+        ymin = int(box.find('ymin').text)
+        ymax = int(box.find('ymax').text)
+        cropped = img[ymin:ymax,xmin:xmax]
+        #cv2.imshow('img', cropped)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
+        if _ob.find('cutin').text == '1':
+            cv2.imwrite(crop_dir+'/1/'+str(countcut).zfill(4)+'.jpg',cropped)
+            countcut += 1
+        else:
+            cv2.imwrite(crop_dir + '/2/' + str(countnocut).zfill(4) + '.jpg', cropped)
+            countnocut += 1
+
+    #Tree.write(xml_path)
+
+    end = time.time()
+    print('\rProcessing ' + folder + '/' + fname + ' time consuming: %s s' % str(end - start), end=" ")
+
+
 
 if __name__ == '__main__':
     for i in range(1,11):
         xmls = xml_files(filepath+str(i))
-        list(map(xml_projector,xmls))
-    print('\n',cutin_total)
+        list(map(cutin_predictor,xmls))
+    print('\n',confusion,"recall:",confusion[1,1]/(confusion[1,0]+confusion[1,1]))
     #pool = Pool(4)
     #pool.map(roi_checker,xmls)
     #pool.close()

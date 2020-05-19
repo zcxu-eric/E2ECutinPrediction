@@ -93,11 +93,12 @@ class CutinNet(nn.Module):
         out = cropped_feat.view(cropped_feat.size(0),-1)
         d1 = self.dense_1(out)
         d2 = self.dense_2(d1)
-        output = d2
+        m = nn.LogSoftmax(dim=1)
+        criterion = nn.NLLLoss(torch.tensor([1.0,8.0],device="cuda"),reduction='mean')
         # ROI Align
-        loss = nn.CrossEntropyLoss()(output, target.long())
+        loss = criterion(m(d2), target.long())
         if self.train_flag == 2:
-            return output
+            return d2
         else:
             return loss
 

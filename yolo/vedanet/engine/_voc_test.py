@@ -87,25 +87,20 @@ def VOCTest(hyper_params):
     for idx, data in enumerate(loader):
         if (idx + 1) % 20 == 0: 
             log.info('image batches: %d/%d' % (idx + 1, len(loader)))
-        cropped_imgs, labels = cropped_img_generatir(data)
+        data1, data2, boxes, labels = cropped_img_generatir(data)
         try:
             total += len(labels)
         except:
             continue
         newlabels = labels.view(-1, 1)
-        if cropped_imgs == None or len(cropped_imgs) == 0:
+        if len(labels) == 0:
             continue
-        data1 = cropped_imgs[0][0].unsqueeze(dim=0)
-        data2 = cropped_imgs[0][1].unsqueeze(dim=0)
-        if len(cropped_imgs) > 1:
-            for i in range(1, len(cropped_imgs)):
-                data1 = torch.cat((data1, cropped_imgs[i][0].unsqueeze(dim=0)), dim=0)
-                data2 = torch.cat((data2, cropped_imgs[i][1].unsqueeze(dim=0)), dim=0)
+
         if torch.cuda.is_available():
             data1 = data1.cuda()
             data2 = data2.cuda()
         with torch.no_grad():
-            output = net([data1, data2], labels)
+            output = net([data1,data2], boxes, labels)
         score = F.softmax(output, dim=1).cpu().numpy()
         pred = np.argmax(score,axis=1)
         gt = labels.cpu().numpy()
