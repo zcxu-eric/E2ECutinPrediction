@@ -44,7 +44,10 @@ rois = {'1':[[620,610],[835,610],[525,800],[1045,800]],
         '7':[[530,406],[618,406],[214,670],[947,670]],
         '8':[[470,540],[805,540],[221,780],[945,780]],
         '9':[[383,482],[565,482],[110,750],[945,750]],
-        '10':[[590,400],[744,400],[436,800],[1056,800]],}
+        '10':[[590,400],[744,400],[436,800],[1056,800]],
+        '11':[[363,500],[744,500],[63,710],[1056,700]],
+        '12':[[435,555],[594,555],[206,740],[900,740]],
+        '13':[[180,400],[330,400],[63,700],[700,776]],}
 
 expand_ratio = {'1':-0.0006,
                 '2':-0.002,
@@ -55,7 +58,10 @@ expand_ratio = {'1':-0.0006,
                 '7':-0.00278,
                 '8':-0.0148,
                 '9':-0.0009,
-                '10':-0.0008}
+                '10':-0.0008,
+                '11':0,
+                '12':0.000,
+                '13':0,}
 
 cutdis = []
 nocutdis = []
@@ -169,7 +175,12 @@ def inter(rec1,rec2):
 def roi_inter(box, folder):
     pieceroi = []
     count = 0
-    [p1, p2, p3, p4] = rois[folder]
+    roi = rois[folder]
+    roi[0][0] = roi[0][0] * (1 - expand_ratio[folder])
+    roi[2][0] = roi[2][0] * (1 - expand_ratio[folder])
+    roi[1][0] = roi[1][0] * (1 + expand_ratio[folder])
+    roi[3][0] = roi[3][0] * (1 + expand_ratio[folder])
+    [p1, p2, p3, p4] = roi
     yslide = 5
     kr = (p4[0]-p2[0])/(p4[1]-p2[1])
     kl = (p1[0]-p3[0])/(p3[1]-p1[1])
@@ -214,7 +225,10 @@ def cutin_predictor(xml_path):
     for i in range(2):
         imgboxes = []
         gt = []
-        Tree = ET.parse(os.path.join(base,str(int(fname[:-4])-i).zfill(4)+'.xml'))
+        try:
+            Tree = ET.parse(os.path.join(base,str(int(fname[:-4])-3).zfill(4)+'.xml'))
+        except:
+            return
         root = Tree.getroot()
         ob = root.findall('object')
         for _ob in ob:
@@ -233,7 +247,13 @@ def cutin_predictor(xml_path):
 
     imgboxes = IMGboxes[0]
     gt = GT[0]
-    pred = np.zeros(shape=len(imgboxes))#pred for each objs in one img
+    if isinstance(imgboxes, str):
+        return      #no objects
+
+    INTER = np.zeros(shape=len(imgboxes))  #inter for each obj in one img
+    pose = np.zeros(shape=len(imgboxes))   #pose for each obj in one img
+    prob = np.zeros(shape=len(imgboxes))   #inter for each obj in one img
+    pred = np.zeros(shape=len(imgboxes))   #pred for each obj in one img
 
     for  obj, one in enumerate(imgboxes):
         if isinstance(IMGboxes[1],str):
@@ -243,8 +263,8 @@ def cutin_predictor(xml_path):
             if io >= thres:
                 ROI_inter_2 = roi_inter(one, folder) #current
                 ROI_inter_1 = roi_inter(IMGboxes[1][_id],folder) #pre
+                INTER[obj] = (ROI_inter_2)  # record inter for obj in current img
                 if ROI_inter_1 > 0.00 or ROI_inter_2 > 0.00:
-
                     cropped = IMG[one[1]:one[3], one[0]:one[2]]
                     try:
                         img = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))  # opencv to PIL
@@ -261,15 +281,32 @@ def cutin_predictor(xml_path):
                     img = img.to(device)
                     with torch.no_grad():
                         output = model_ft(img)
-                        _, pose = torch.max(output, 1)
+                        _, pose[obj] = torch.max(output, 1)
                         # print(class_names[preds])
                         # out = torchvision.utils.make_grid(img)
                         # imshow(out.cpu().data)
-                    if (pose == 2) or (pose == 1):
-                        pred[obj] = 1
                 break
-        confusion[int(gt[obj]), int(pred[obj])] += 1
 
+    for i in range(len(imgboxes)):
+        if pose[i] == 3 or pose[i] == 0:
+            INTER[i] = 0
+            #print(xml_path)
+    max = INTER.argsort()[::-1][0:2]
+    max = np.max(INTER)
+    for i in range(len(imgboxes)):
+        if INTER[i] >0:
+            prob[i] = INTER[i]
+            if INTER[i]/max >= 0.5:
+                pred[i] = 1
+
+    for i in range(len(imgboxes)):
+        try:
+            if (int(gt[i])==0) and int(pred[i])==1:
+                #print(xml_path)
+                pass
+            confusion[int(gt[i]), int(pred[i])] += 1
+        except:
+            pass
     end = time.time()
     print('\rProcessing ' + folder + '/' + fname + ' time consuming: %s s' % str(end - start), end=" ")
 
@@ -293,7 +330,7 @@ def roi_checker(xml_path):
     base, fname = os.path.split(xml_path)
     base, folder = os.path.split(base)
     root = Tree.getroot()
-    folder = root.find('folder').text
+
     roi = rois[folder]
 
     roi[0][0] = roi[0][0]*(1-expand_ratio[folder])
@@ -363,6 +400,7 @@ def xml_projector(xml_path):
     base, fname = os.path.split(xml_path)
     base, folder = os.path.split(base)
     root = Tree.getroot()
+    root.find('folder').text = folder
     ob = root.findall('object')
     for _ob in ob:
         '''
@@ -381,11 +419,11 @@ def xml_projector(xml_path):
         '''
 
         #if _ob.text == str(one[1]):
-        name = _ob.find('name').text
 
+        name = _ob.find('name').text
         #if name in name_list:
         #    _ob.find('name').text = "car"
-        
+
         if name not in cutin_list and _ob.find('cutin') == None:
             cutin = SubElement(_ob,"cutin")
             cutin.text = "0"
@@ -510,8 +548,9 @@ def crop_imgs(xml_path):
 
 
 if __name__ == '__main__':
-    for i in range(1,11):
+    for i in range(11,14):
         xmls = xml_files(filepath+str(i))
+        #cutin_predictor(xmls[227])
         list(map(cutin_predictor,xmls))
     print('\n',confusion,"recall:",confusion[1,1]/(confusion[1,0]+confusion[1,1]))
     #pool = Pool(4)
