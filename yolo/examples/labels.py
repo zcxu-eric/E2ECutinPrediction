@@ -13,7 +13,7 @@ sys.path.insert(0, '.')
 import brambox.boxes as bbb
 
 DEBUG = True        # Enable some debug prints with extra information
-ROOT = '/media/eric/XZC/KITTI/VOCdevkit'       # Root folder where the VOCdevkit is located
+ROOT = '/media/eric/Daten/KITTI/VOCdevkit'       # Root folder where the VOCdevkit is located
 '''
 TRAINSET = [
     ('2012', 'train'),
