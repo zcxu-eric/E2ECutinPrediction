@@ -28,7 +28,7 @@ name_list = ["bus","truck","person","tv"]
 cutin_list = ["cutin"]
 #name_list = ["car","Van","person","Truck","Cyclist"]
 labels = []
-filepath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/Annotations.origin2/'
+filepath = '/home/eric/KITTI/VOCdevkit/VOC2012/Anno/'
 imgpath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/JPEGImages'
 crop_dir = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/CropImages'
 cutin_total = 0
@@ -226,7 +226,7 @@ def cutin_predictor(xml_path):
         imgboxes = []
         gt = []
         try:
-            Tree = ET.parse(os.path.join(base,str(int(fname[:-4])-3).zfill(4)+'.xml'))
+            Tree = ET.parse(os.path.join(base,str(int(fname[:-4])-i).zfill(4)+'.xml'))
         except:
             return
         root = Tree.getroot()
@@ -286,7 +286,9 @@ def cutin_predictor(xml_path):
                         # out = torchvision.utils.make_grid(img)
                         # imshow(out.cpu().data)
                 break
-
+    Tree = ET.parse(os.path.join(base, str(int(fname[:-4])).zfill(4) + '.xml'))
+    root = Tree.getroot()
+    ob = root.findall('object')
     for i in range(len(imgboxes)):
         if pose[i] == 3 or pose[i] == 0:
             INTER[i] = 0
@@ -296,10 +298,17 @@ def cutin_predictor(xml_path):
     for i in range(len(imgboxes)):
         if INTER[i] >0:
             prob[i] = INTER[i]
+            _prob = SubElement(ob[i],'prob')
+            _prob.text = str(prob[i])
             if INTER[i]/max >= 0.5:
                 pred[i] = 1
 
     for i in range(len(imgboxes)):
+
+        if ob[i].find('prob') == None:
+            _prob = SubElement(ob[i], 'prob')
+            _prob.text = str(0)
+
         try:
             if (int(gt[i])==0) and int(pred[i])==1:
                 #print(xml_path)
@@ -307,6 +316,8 @@ def cutin_predictor(xml_path):
             confusion[int(gt[i]), int(pred[i])] += 1
         except:
             pass
+    prettyXml(root, '\t', '\n')
+    Tree.write(xml_path)
     end = time.time()
     print('\rProcessing ' + folder + '/' + fname + ' time consuming: %s s' % str(end - start), end=" ")
 
@@ -548,7 +559,7 @@ def crop_imgs(xml_path):
 
 
 if __name__ == '__main__':
-    for i in range(11,14):
+    for i in range(4,5):
         xmls = xml_files(filepath+str(i))
         #cutin_predictor(xmls[227])
         list(map(cutin_predictor,xmls))
