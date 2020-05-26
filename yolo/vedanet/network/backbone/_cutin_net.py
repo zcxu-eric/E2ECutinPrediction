@@ -40,7 +40,7 @@ class CutinNet(nn.Module):
         ]
         layers_list_suc = [
             OrderedDict([
-                ('Stage6', bsnv2.Stage(2*out_planes[1], out_planes[2], groups, num_blocks[2])),
+                ('Stage6', bsnv2.Stage(out_planes[1], out_planes[2], groups, num_blocks[2])),
                 # the following is extra
             ]),
 
@@ -52,7 +52,7 @@ class CutinNet(nn.Module):
 
         self.pre_layers = nn.ModuleList([nn.Sequential(layer_dict_pre) for layer_dict_pre in layers_list_pre])
         self.suc_layers = nn.ModuleList([nn.Sequential(layer_dict_suc) for layer_dict_suc in layers_list_suc])
-
+        self.relu = nn.ReLU()
         self.dense_1 = nn.Linear(464*7*7, 200)
         self.dense_2 = nn.Linear(200, 2)
 
@@ -73,7 +73,9 @@ class CutinNet(nn.Module):
         stage4_2 = self.pre_layers[1](stem_2)
         stage5_2 = self.pre_layers[2](stage4_2)
 
-        stage5 = torch.cat((stage5_1, stage5_2), dim=1)
+        #stage5 = torch.cat((stage5_1, stage5_2), dim=1)
+        stage5 = stage5_1 + stage5_2
+        stage5 = self.relu(stage5)
         stage6 = self.suc_layers[0](stage5)  # bs,464,27,36
 
         self.reduction = x1.size(3)/stage6.size(3)

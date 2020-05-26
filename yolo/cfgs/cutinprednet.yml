@@ -43,7 +43,7 @@ test:
 
     input_shape: [544, 544]
     batch_size: 4
-    weights: "outputs/CutinPredNet/baseline/weights/weights_24800.pt"
+    weights: "outputs/CutinPredNet/baseline/weights/e2e_with_aug.pt"
 
     conf_thresh: 0.005
     nms_thresh: 0.45
