@@ -12,7 +12,7 @@ if os.path.exists(trainfile):
 if os.path.exists(testfile):
     os.remove(testfile)
 
-for i in range(1,14):
+for i in range(11,14):
     img_list = glob.glob(img_dir + '/' +str(i) + '/*.xml')
     train = sample(img_list, int(0.7*len(img_list)))
     test = list(set(img_list) - set(train))
