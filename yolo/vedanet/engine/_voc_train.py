@@ -114,15 +114,17 @@ class VOCTrainingEngine(engine.Engine):
         data1, data2, boxes, labels = self.cropped_img_generatir(data)
         if not boxes:
             return
-        newlabels = labels.view(-1, 1)
+        #newlabels = labels.view(-1, 1)
         if self.cuda:
             data1 = data1.cuda()
             data2 = data2.cuda()
-
-        loss = self.network([data1,data2], boxes, labels)
-        loss.backward()
+        self.train_loss = 0
+        for id, oneboxset in enumerate(boxes):
+            if not isinstance(oneboxset, str):
+                loss = self.network([data1[id,:,:,:].unsqueeze(0),data2[id,:,:,:].unsqueeze(0)], boxes[id], labels[id])
+                loss.backward()
         try:
-            self.train_loss = float(loss.item())
+            self.train_loss += float(loss.item())
         except:
             pass
 
@@ -175,10 +177,16 @@ class VOCTrainingEngine(engine.Engine):
         boxes, labels = self.__build_targets_brambox(target)
         if len(boxes) == 0:
             return None, None
-        boxseq = []
-        labelseq = []
+        BOXES = []
+        LABELS = []
+        boxflag = 0
         for id, one in enumerate(boxes):
+            boxseq = []
+            labelseq = []
             if not isinstance(one, str):
+                boxflag = 1
+
+
                 bndboxes = one.tolist()
                 imglabels = labels[id].tolist()
                 '''
@@ -190,11 +198,18 @@ class VOCTrainingEngine(engine.Engine):
                 for ii,box in enumerate(bndboxes):
                     boxseq.append(torch.tensor(box).cuda())
                     labelseq.append(imglabels[ii])
-                    a =1
-        if len(boxseq) == 0:
+            if len(boxseq)!=0:
+                BOXES.append(boxseq)
+            else:
+                BOXES.append("NULL")
+            if len(labelseq)!=0:
+                LABELS.append(torch.tensor(labelseq).cuda())
+            else:
+                LABELS.append("NULL")
+        if boxflag == 0:
             return img1, img2,None, None
-
-        return img1, img2, boxseq, torch.tensor(labelseq).cuda()
+        #boxseq, labelseq = self.cutin_balance(boxseq,labelseq)
+        return img1, img2, BOXES, LABELS
 
 
     def __build_targets_brambox(self, ground_truth, expand_ratio = 0.2):
@@ -226,37 +241,36 @@ class VOCTrainingEngine(engine.Engine):
             L.append(label)
         return GT, L
 
-    def cutin_balance(self, cropped_imgs, labels):
+    def cutin_balance(self,boxes, labels):
         nocut = []
         cut = []
         for id, one in enumerate(labels):
-            if one:
-                cut.extend([cropped_imgs[id]])
-                if len(self.cutin_pool) >= 1000:
-                    self.cutin_pool = sample(self.cutin_pool, 500)
-                self.cutin_pool.extend([cropped_imgs[id]])
+            if one == 1.0:
+                cut.append(boxes[id])
+                #if len(self.cutin_pool) >= 1000:
+                #    self.cutin_pool = sample(self.cutin_pool, 500)
+                #self.cutin_pool.extend([cropped_imgs[id]])
             else:
-                nocut.extend([cropped_imgs[id]])
-        nocut = sample(nocut, int(0.5*len(nocut)))
-        if len(nocut) > len(cut):
-            if len(self.cutin_pool) > len(nocut)-len(cut):
-                cut.extend(sample(self.cutin_pool,len(nocut)-len(cut)))
-            else:
-                cut.extend(sample(self.cutin_pool, len(self.cutin_pool)))
-        imgs = nocut+cut
+                nocut.append([boxes[id]])
+        if len(nocut>=4):
+            nocut = sample(nocut, int(0.5*len(nocut)))
+        if len(cut) != 0:
+            for i in range(len(ncut)-len(cut)):
+                cut.append(cut[0])
+        boxes = nocut+cut
         lnocut = np.zeros(len(nocut))
         lcut = np.ones(len(cut))
         label = np.hstack((lnocut,lcut))
-        ind = list(range(len(imgs)))
-        com = list(zip(ind,imgs))
+        ind = list(range(len(boxes)))
+        com = list(zip(ind,boxes))
         shuffle(com)
         try:
             ind, imgs = zip(*com)
         except:
             pass
-        imgs = list(imgs)
+        boxes = list(boxes)
         label_new = label[list(ind)]
         label_t = torch.from_numpy(label_new).cuda()
 
 
-        return imgs, label_t
+        return boxes, label_t
