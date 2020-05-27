@@ -28,7 +28,7 @@ name_list = ["bus","truck","person","tv"]
 cutin_list = ["cutin"]
 #name_list = ["car","Van","person","Truck","Cyclist"]
 labels = []
-filepath = '/home/eric/KITTI/VOCdevkit/VOC2012/Anno/'
+filepath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/Annotations/'
 imgpath = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/JPEGImages'
 crop_dir = '/media/eric/Daten/KITTI/VOCdevkit/VOC2012/CropImages'
 cutin_total = 0
@@ -176,12 +176,12 @@ def roi_inter(box, folder):
     pieceroi = []
     count = 0
     roi = rois[folder]
-    roi[0][0] = roi[0][0] * (1 - expand_ratio[folder])
-    roi[2][0] = roi[2][0] * (1 - expand_ratio[folder])
-    roi[1][0] = roi[1][0] * (1 + expand_ratio[folder])
-    roi[3][0] = roi[3][0] * (1 + expand_ratio[folder])
+    #roi[0][0] = roi[0][0] * (1 - expand_ratio[folder])
+    #roi[2][0] = roi[2][0] * (1 - expand_ratio[folder])
+    #roi[1][0] = roi[1][0] * (1 + expand_ratio[folder])
+    #roi[3][0] = roi[3][0] * (1 + expand_ratio[folder])
     [p1, p2, p3, p4] = roi
-    yslide = 5
+    yslide = 1
     kr = (p4[0]-p2[0])/(p4[1]-p2[1])
     kl = (p1[0]-p3[0])/(p3[1]-p1[1])
     xslider = kr*yslide
@@ -300,8 +300,8 @@ def cutin_predictor(xml_path):
             prob[i] = INTER[i]
             _prob = SubElement(ob[i],'prob')
             _prob.text = str(prob[i])
-            if INTER[i]/max >= 0.5:
-                pred[i] = 1
+            #if INTER[i]/max >= 0.1:
+            pred[i] = 1
 
     for i in range(len(imgboxes)):
 
@@ -310,8 +310,8 @@ def cutin_predictor(xml_path):
             _prob.text = str(0)
 
         try:
-            if (int(gt[i])==0) and int(pred[i])==1:
-                #print(xml_path)
+            if (int(gt[i])==1) and int(pred[i])==0:
+                print(INTER[i])
                 pass
             confusion[int(gt[i]), int(pred[i])] += 1
         except:
@@ -559,11 +559,13 @@ def crop_imgs(xml_path):
 
 
 if __name__ == '__main__':
-    for i in range(4,5):
+    start = time.time()
+    for i in range(11,14):
         xmls = xml_files(filepath+str(i))
         #cutin_predictor(xmls[227])
         list(map(cutin_predictor,xmls))
-    print('\n',confusion,"recall:",confusion[1,1]/(confusion[1,0]+confusion[1,1]))
+    end = time.time()
+    print('\n',confusion,"recall:",confusion[1,1]/(confusion[1,0]+confusion[1,1]),"eclipsed:%s"%(end-start))
     #pool = Pool(4)
     #pool.map(roi_checker,xmls)
     #pool.close()
